@@ -1,0 +1,37 @@
+{
+  "id": "12_fr_citizen_complaint",
+  "lang": "fr",
+  "category": "citizen_complaint",
+  "entities": [
+    {
+      "start": 38,
+      "end": 54,
+      "text": "Isabelle Rossier",
+      "type": "PERSON"
+    },
+    {
+      "start": 67,
+      "end": 107,
+      "text": "Avenue de la Gare 113, 8999 Musterhausen",
+      "type": "ADDRESS"
+    },
+    {
+      "start": 173,
+      "end": 189,
+      "text": "756.4200.5507.01",
+      "type": "AHV"
+    },
+    {
+      "start": 217,
+      "end": 233,
+      "text": "+41 79 169 14 52",
+      "type": "PHONE"
+    },
+    {
+      "start": 263,
+      "end": 295,
+      "text": "la seule pharmacienne du village",
+      "type": "CONTEXTUAL"
+    }
+  ]
+}

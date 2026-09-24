@@ -1,0 +1,31 @@
+{
+  "id": "35_en_commune_correspondence",
+  "lang": "en",
+  "category": "commune_correspondence",
+  "entities": [
+    {
+      "start": 75,
+      "end": 89,
+      "text": "Andrew Example",
+      "type": "PERSON"
+    },
+    {
+      "start": 150,
+      "end": 185,
+      "text": "Church Close 105, 2000 Villefictive",
+      "type": "ADDRESS"
+    },
+    {
+      "start": 214,
+      "end": 244,
+      "text": "andrew.example@example-mail.ch",
+      "type": "EMAIL"
+    },
+    {
+      "start": 273,
+      "end": 307,
+      "text": "the only pharmacist in the village",
+      "type": "CONTEXTUAL"
+    }
+  ]
+}

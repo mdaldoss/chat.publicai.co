@@ -1,0 +1,37 @@
+{
+  "id": "21_it_citizen_complaint",
+  "lang": "it",
+  "category": "citizen_complaint",
+  "entities": [
+    {
+      "start": 52,
+      "end": 65,
+      "text": "Franca Esempi",
+      "type": "PERSON"
+    },
+    {
+      "start": 80,
+      "end": 115,
+      "text": "Via del Lago 170, 9999 Fantasiedorf",
+      "type": "ADDRESS"
+    },
+    {
+      "start": 169,
+      "end": 185,
+      "text": "756.9111.5267.22",
+      "type": "AHV"
+    },
+    {
+      "start": 209,
+      "end": 225,
+      "text": "+41 79 749 43 74",
+      "type": "PHONE"
+    },
+    {
+      "start": 248,
+      "end": 276,
+      "text": "il mio vicino al terzo piano",
+      "type": "CONTEXTUAL"
+    }
+  ]
+}

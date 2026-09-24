@@ -1,0 +1,25 @@
+{
+  "id": "30_it_bank_letter",
+  "lang": "it",
+  "category": "bank_letter",
+  "entities": [
+    {
+      "start": 8,
+      "end": 22,
+      "text": "Patrizia Conti",
+      "type": "PERSON"
+    },
+    {
+      "start": 70,
+      "end": 91,
+      "text": "CH7127634657976266092",
+      "type": "IBAN"
+    },
+    {
+      "start": 115,
+      "end": 148,
+      "text": "Via Modello 78, 2000 Villefictive",
+      "type": "ADDRESS"
+    }
+  ]
+}

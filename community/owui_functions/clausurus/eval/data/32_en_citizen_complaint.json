@@ -1,0 +1,37 @@
+{
+  "id": "32_en_citizen_complaint",
+  "lang": "en",
+  "category": "citizen_complaint",
+  "entities": [
+    {
+      "start": 27,
+      "end": 44,
+      "text": "Jonathan Ashworth",
+      "type": "PERSON"
+    },
+    {
+      "start": 58,
+      "end": 94,
+      "text": "Station Avenue 46, 3999 Beispieldorf",
+      "type": "ADDRESS"
+    },
+    {
+      "start": 164,
+      "end": 180,
+      "text": "756.5028.4869.51",
+      "type": "AHV"
+    },
+    {
+      "start": 202,
+      "end": 218,
+      "text": "+41 79 873 66 88",
+      "type": "PHONE"
+    },
+    {
+      "start": 244,
+      "end": 275,
+      "text": "my neighbour on the third floor",
+      "type": "CONTEXTUAL"
+    }
+  ]
+}

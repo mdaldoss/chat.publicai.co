@@ -1,0 +1,37 @@
+{
+  "id": "18_fr_hr_email",
+  "lang": "fr",
+  "category": "hr_email",
+  "entities": [
+    {
+      "start": 30,
+      "end": 45,
+      "text": "Sylvie Maillard",
+      "type": "PERSON"
+    },
+    {
+      "start": 162,
+      "end": 178,
+      "text": "756.6412.0703.05",
+      "type": "AHV"
+    },
+    {
+      "start": 229,
+      "end": 240,
+      "text": "Marc Bochud",
+      "type": "PERSON"
+    },
+    {
+      "start": 244,
+      "end": 260,
+      "text": "+41 79 533 99 81",
+      "type": "PHONE"
+    },
+    {
+      "start": 264,
+      "end": 295,
+      "text": "sylvie.maillard@example-mail.ch",
+      "type": "EMAIL"
+    }
+  ]
+}

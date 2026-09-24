@@ -1,0 +1,37 @@
+{
+  "id": "02_de_citizen_complaint",
+  "lang": "de",
+  "category": "citizen_complaint",
+  "entities": [
+    {
+      "start": 42,
+      "end": 58,
+      "text": "Beat Steingruber",
+      "type": "PERSON"
+    },
+    {
+      "start": 76,
+      "end": 106,
+      "text": "Kirchweg 72, 9999 Fantasiedorf",
+      "type": "ADDRESS"
+    },
+    {
+      "start": 172,
+      "end": 188,
+      "text": "756.7142.2713.38",
+      "type": "AHV"
+    },
+    {
+      "start": 215,
+      "end": 231,
+      "text": "+41 79 452 87 43",
+      "type": "PHONE"
+    },
+    {
+      "start": 255,
+      "end": 286,
+      "text": "die einzige Apothekerin im Dorf",
+      "type": "CONTEXTUAL"
+    }
+  ]
+}

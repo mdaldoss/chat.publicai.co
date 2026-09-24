@@ -1,0 +1,31 @@
+{
+  "id": "24_it_commune_correspondence",
+  "lang": "it",
+  "category": "commune_correspondence",
+  "entities": [
+    {
+      "start": 75,
+      "end": 89,
+      "text": "Nello Rossetti",
+      "type": "PERSON"
+    },
+    {
+      "start": 154,
+      "end": 190,
+      "text": "Via della Stazione 61, 1000 Faketown",
+      "type": "ADDRESS"
+    },
+    {
+      "start": 232,
+      "end": 262,
+      "text": "nello.rossetti@example-mail.ch",
+      "type": "EMAIL"
+    },
+    {
+      "start": 304,
+      "end": 332,
+      "text": "l'unica farmacista del paese",
+      "type": "CONTEXTUAL"
+    }
+  ]
+}

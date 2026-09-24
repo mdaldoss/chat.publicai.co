@@ -1,0 +1,31 @@
+{
+  "id": "26_it_commune_correspondence",
+  "lang": "it",
+  "category": "commune_correspondence",
+  "entities": [
+    {
+      "start": 75,
+      "end": 86,
+      "text": "Marco Conti",
+      "type": "PERSON"
+    },
+    {
+      "start": 151,
+      "end": 181,
+      "text": "Via Modello 121, 1000 Faketown",
+      "type": "ADDRESS"
+    },
+    {
+      "start": 223,
+      "end": 250,
+      "text": "marco.conti@example-mail.ch",
+      "type": "EMAIL"
+    },
+    {
+      "start": 292,
+      "end": 324,
+      "text": "il nuovo portinaio del palazzo 4",
+      "type": "CONTEXTUAL"
+    }
+  ]
+}

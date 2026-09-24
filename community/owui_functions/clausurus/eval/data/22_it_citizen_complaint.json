@@ -1,0 +1,37 @@
+{
+  "id": "22_it_citizen_complaint",
+  "lang": "it",
+  "category": "citizen_complaint",
+  "entities": [
+    {
+      "start": 52,
+      "end": 66,
+      "text": "Patrizia Galli",
+      "type": "PERSON"
+    },
+    {
+      "start": 81,
+      "end": 114,
+      "text": "Via Modello 24, 3999 Beispieldorf",
+      "type": "ADDRESS"
+    },
+    {
+      "start": 168,
+      "end": 184,
+      "text": "756.4207.6275.43",
+      "type": "AHV"
+    },
+    {
+      "start": 208,
+      "end": 224,
+      "text": "+41 79 109 24 19",
+      "type": "PHONE"
+    },
+    {
+      "start": 247,
+      "end": 268,
+      "text": "la moglie del sindaco",
+      "type": "CONTEXTUAL"
+    }
+  ]
+}

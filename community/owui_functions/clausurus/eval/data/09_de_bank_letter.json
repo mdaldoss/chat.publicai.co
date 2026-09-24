@@ -1,0 +1,25 @@
+{
+  "id": "09_de_bank_letter",
+  "lang": "de",
+  "category": "bank_letter",
+  "entities": [
+    {
+      "start": 16,
+      "end": 28,
+      "text": "Silvia Hodel",
+      "type": "PERSON"
+    },
+    {
+      "start": 85,
+      "end": 106,
+      "text": "CH7254259618773210779",
+      "type": "IBAN"
+    },
+    {
+      "start": 134,
+      "end": 163,
+      "text": "Musterweg 99, 6999 Paesefinto",
+      "type": "ADDRESS"
+    }
+  ]
+}

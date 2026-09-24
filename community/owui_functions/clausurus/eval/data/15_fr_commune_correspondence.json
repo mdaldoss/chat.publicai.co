@@ -1,0 +1,31 @@
+{
+  "id": "15_fr_commune_correspondence",
+  "lang": "fr",
+  "category": "commune_correspondence",
+  "entities": [
+    {
+      "start": 87,
+      "end": 104,
+      "text": "Gregoire Maillard",
+      "type": "PERSON"
+    },
+    {
+      "start": 174,
+      "end": 208,
+      "text": "Rue de l'Exemple 64, 1000 Faketown",
+      "type": "ADDRESS"
+    },
+    {
+      "start": 244,
+      "end": 277,
+      "text": "gregoire.maillard@example-mail.ch",
+      "type": "EMAIL"
+    },
+    {
+      "start": 315,
+      "end": 344,
+      "text": "mon voisin du troisième étage",
+      "type": "CONTEXTUAL"
+    }
+  ]
+}

@@ -1,0 +1,31 @@
+{
+  "id": "14_fr_commune_correspondence",
+  "lang": "fr",
+  "category": "commune_correspondence",
+  "entities": [
+    {
+      "start": 81,
+      "end": 94,
+      "text": "Marc Maillard",
+      "type": "PERSON"
+    },
+    {
+      "start": 164,
+      "end": 203,
+      "text": "Rue de l'Exemple 173, 3999 Beispieldorf",
+      "type": "ADDRESS"
+    },
+    {
+      "start": 239,
+      "end": 268,
+      "text": "marc.maillard@example-mail.ch",
+      "type": "EMAIL"
+    },
+    {
+      "start": 306,
+      "end": 335,
+      "text": "mon voisin du troisième étage",
+      "type": "CONTEXTUAL"
+    }
+  ]
+}

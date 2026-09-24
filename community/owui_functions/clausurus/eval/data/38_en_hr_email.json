@@ -1,0 +1,37 @@
+{
+  "id": "38_en_hr_email",
+  "lang": "en",
+  "category": "hr_email",
+  "entities": [
+    {
+      "start": 32,
+      "end": 48,
+      "text": "Louise Cotterill",
+      "type": "PERSON"
+    },
+    {
+      "start": 147,
+      "end": 163,
+      "text": "756.0350.6140.34",
+      "type": "AHV"
+    },
+    {
+      "start": 201,
+      "end": 216,
+      "text": "Rachel Ashworth",
+      "type": "PERSON"
+    },
+    {
+      "start": 220,
+      "end": 236,
+      "text": "+41 79 230 89 78",
+      "type": "PHONE"
+    },
+    {
+      "start": 240,
+      "end": 272,
+      "text": "louise.cotterill@example-mail.ch",
+      "type": "EMAIL"
+    }
+  ]
+}

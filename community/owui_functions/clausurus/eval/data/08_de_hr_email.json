@@ -1,0 +1,37 @@
+{
+  "id": "08_de_hr_email",
+  "lang": "de",
+  "category": "hr_email",
+  "entities": [
+    {
+      "start": 28,
+      "end": 43,
+      "text": "Katharina Hodel",
+      "type": "PERSON"
+    },
+    {
+      "start": 128,
+      "end": 144,
+      "text": "756.3295.0016.79",
+      "type": "AHV"
+    },
+    {
+      "start": 207,
+      "end": 218,
+      "text": "Priska Wyss",
+      "type": "PERSON"
+    },
+    {
+      "start": 225,
+      "end": 241,
+      "text": "+41 79 698 64 84",
+      "type": "PHONE"
+    },
+    {
+      "start": 247,
+      "end": 278,
+      "text": "katharina.hodel@example-mail.ch",
+      "type": "EMAIL"
+    }
+  ]
+}

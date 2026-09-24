@@ -1,0 +1,37 @@
+{
+  "id": "31_en_citizen_complaint",
+  "lang": "en",
+  "category": "citizen_complaint",
+  "entities": [
+    {
+      "start": 27,
+      "end": 42,
+      "text": "Megan Sampleton",
+      "type": "PERSON"
+    },
+    {
+      "start": 56,
+      "end": 92,
+      "text": "Station Avenue 38, 9999 Fantasiedorf",
+      "type": "ADDRESS"
+    },
+    {
+      "start": 162,
+      "end": 178,
+      "text": "756.0967.4857.37",
+      "type": "AHV"
+    },
+    {
+      "start": 200,
+      "end": 216,
+      "text": "+41 79 509 41 28",
+      "type": "PHONE"
+    },
+    {
+      "start": 242,
+      "end": 276,
+      "text": "the only pharmacist in the village",
+      "type": "CONTEXTUAL"
+    }
+  ]
+}

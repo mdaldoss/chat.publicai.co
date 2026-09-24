@@ -1,0 +1,37 @@
+{
+  "id": "01_de_citizen_complaint",
+  "lang": "de",
+  "category": "citizen_complaint",
+  "entities": [
+    {
+      "start": 42,
+      "end": 58,
+      "text": "Urs Beispielmann",
+      "type": "PERSON"
+    },
+    {
+      "start": 76,
+      "end": 104,
+      "text": "Seestrasse 63, 1000 Faketown",
+      "type": "ADDRESS"
+    },
+    {
+      "start": 170,
+      "end": 186,
+      "text": "756.1175.5002.67",
+      "type": "AHV"
+    },
+    {
+      "start": 213,
+      "end": 229,
+      "text": "+41 79 674 35 93",
+      "type": "PHONE"
+    },
+    {
+      "start": 253,
+      "end": 282,
+      "text": "mein Nachbar im dritten Stock",
+      "type": "CONTEXTUAL"
+    }
+  ]
+}

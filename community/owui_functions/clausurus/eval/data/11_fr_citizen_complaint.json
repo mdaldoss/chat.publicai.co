@@ -1,0 +1,37 @@
+{
+  "id": "11_fr_citizen_complaint",
+  "lang": "fr",
+  "category": "citizen_complaint",
+  "entities": [
+    {
+      "start": 38,
+      "end": 54,
+      "text": "Didier Exemplier",
+      "type": "PERSON"
+    },
+    {
+      "start": 67,
+      "end": 99,
+      "text": "Rue du Lac 18, 8999 Musterhausen",
+      "type": "ADDRESS"
+    },
+    {
+      "start": 165,
+      "end": 181,
+      "text": "756.7145.2842.50",
+      "type": "AHV"
+    },
+    {
+      "start": 209,
+      "end": 225,
+      "text": "+41 79 847 98 35",
+      "type": "PHONE"
+    },
+    {
+      "start": 255,
+      "end": 291,
+      "text": "le nouveau concierge de l'immeuble 4",
+      "type": "CONTEXTUAL"
+    }
+  ]
+}

@@ -1,0 +1,25 @@
+{
+  "id": "39_en_bank_letter",
+  "lang": "en",
+  "category": "bank_letter",
+  "entities": [
+    {
+      "start": 5,
+      "end": 20,
+      "text": "Andrew Ashworth",
+      "type": "PERSON"
+    },
+    {
+      "start": 71,
+      "end": 92,
+      "text": "CH7329484709209002862",
+      "type": "IBAN"
+    },
+    {
+      "start": 111,
+      "end": 144,
+      "text": "Lakeside Lane 87, 6999 Paesefinto",
+      "type": "ADDRESS"
+    }
+  ]
+}

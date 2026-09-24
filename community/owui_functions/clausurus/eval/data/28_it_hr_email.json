@@ -1,0 +1,37 @@
+{
+  "id": "28_it_hr_email",
+  "lang": "it",
+  "category": "hr_email",
+  "entities": [
+    {
+      "start": 32,
+      "end": 46,
+      "text": "Rosanna Esempi",
+      "type": "PERSON"
+    },
+    {
+      "start": 135,
+      "end": 151,
+      "text": "756.1473.6535.28",
+      "type": "AHV"
+    },
+    {
+      "start": 194,
+      "end": 210,
+      "text": "Patrizia Bianchi",
+      "type": "PERSON"
+    },
+    {
+      "start": 214,
+      "end": 230,
+      "text": "+41 79 694 43 14",
+      "type": "PHONE"
+    },
+    {
+      "start": 233,
+      "end": 263,
+      "text": "rosanna.esempi@example-mail.ch",
+      "type": "EMAIL"
+    }
+  ]
+}

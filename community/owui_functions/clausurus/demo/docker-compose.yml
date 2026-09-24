@@ -1,0 +1,49 @@
+# Clausurus demo stack: Open WebUI (pinned to the version this platform
+# runs, v0.11.3) with the Clausurus function pre-installed.
+#
+# Usage:
+#   cp .env.example .env   # fill in APERTUS_API_KEY and at least one provider key
+#   docker compose up
+#   open http://localhost:3000
+#
+# This is a local demo, not the production deployment. It is NOT wired to
+# forpublicai/chat.publicai.co's own infrastructure in any way.
+#
+# NOTE: not exercised against a live Docker daemon in this environment --
+# verify locally before relying on it for the demo.
+
+services:
+  openwebui:
+    image: ghcr.io/open-webui/open-webui:v0.11.3
+    ports:
+      - "3000:8080"
+    environment:
+      WEBUI_SECRET_KEY: ${WEBUI_SECRET_KEY}
+      ENABLE_SIGNUP: "true"
+      ENABLE_LOGIN_FORM: "true"
+      WEBUI_AUTH: "true"
+    volumes:
+      - openwebui-data:/app/backend/data
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  installer:
+    image: python:3.12-slim
+    depends_on:
+      openwebui:
+        condition: service_healthy
+    volumes:
+      - ../clausurus.py:/clausurus/clausurus.py:ro
+      - ./install_function.py:/install_function.py:ro
+    environment:
+      WEBUI_BASE_URL: http://openwebui:8080
+      CLAUSURUS_PATH: /clausurus/clausurus.py
+    command: >
+      sh -c "pip install --quiet httpx && python /install_function.py"
+    restart: "no"
+
+volumes:
+  openwebui-data:

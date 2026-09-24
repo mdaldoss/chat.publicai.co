@@ -1,0 +1,37 @@
+{
+  "id": "17_fr_hr_email",
+  "lang": "fr",
+  "category": "hr_email",
+  "entities": [
+    {
+      "start": 30,
+      "end": 45,
+      "text": "Odile Exemplier",
+      "type": "PERSON"
+    },
+    {
+      "start": 162,
+      "end": 178,
+      "text": "756.9814.2403.90",
+      "type": "AHV"
+    },
+    {
+      "start": 229,
+      "end": 244,
+      "text": "Chantal Rossier",
+      "type": "PERSON"
+    },
+    {
+      "start": 248,
+      "end": 264,
+      "text": "+41 79 653 11 21",
+      "type": "PHONE"
+    },
+    {
+      "start": 268,
+      "end": 299,
+      "text": "odile.exemplier@example-mail.ch",
+      "type": "EMAIL"
+    }
+  ]
+}

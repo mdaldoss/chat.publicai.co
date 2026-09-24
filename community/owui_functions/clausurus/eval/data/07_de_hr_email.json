@@ -1,0 +1,37 @@
+{
+  "id": "07_de_hr_email",
+  "lang": "de",
+  "category": "hr_email",
+  "entities": [
+    {
+      "start": 28,
+      "end": 44,
+      "text": "Heidi Oberholzer",
+      "type": "PERSON"
+    },
+    {
+      "start": 130,
+      "end": 146,
+      "text": "756.9572.4861.15",
+      "type": "AHV"
+    },
+    {
+      "start": 209,
+      "end": 224,
+      "text": "Res Steingruber",
+      "type": "PERSON"
+    },
+    {
+      "start": 231,
+      "end": 247,
+      "text": "+41 79 374 18 37",
+      "type": "PHONE"
+    },
+    {
+      "start": 253,
+      "end": 285,
+      "text": "heidi.oberholzer@example-mail.ch",
+      "type": "EMAIL"
+    }
+  ]
+}

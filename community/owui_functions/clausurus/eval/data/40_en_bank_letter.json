@@ -1,0 +1,25 @@
+{
+  "id": "40_en_bank_letter",
+  "lang": "en",
+  "category": "bank_letter",
+  "entities": [
+    {
+      "start": 5,
+      "end": 20,
+      "text": "Peter Cotterill",
+      "type": "PERSON"
+    },
+    {
+      "start": 71,
+      "end": 92,
+      "text": "CH4342369771359593915",
+      "type": "IBAN"
+    },
+    {
+      "start": 111,
+      "end": 142,
+      "text": "Example Road 145, 1000 Faketown",
+      "type": "ADDRESS"
+    }
+  ]
+}

@@ -1,0 +1,37 @@
+{
+  "id": "27_it_hr_email",
+  "lang": "it",
+  "category": "hr_email",
+  "entities": [
+    {
+      "start": 32,
+      "end": 46,
+      "text": "Patrizia Galli",
+      "type": "PERSON"
+    },
+    {
+      "start": 135,
+      "end": 151,
+      "text": "756.3207.3568.35",
+      "type": "AHV"
+    },
+    {
+      "start": 194,
+      "end": 212,
+      "text": "Gianfranco Bianchi",
+      "type": "PERSON"
+    },
+    {
+      "start": 216,
+      "end": 232,
+      "text": "+41 79 124 94 34",
+      "type": "PHONE"
+    },
+    {
+      "start": 235,
+      "end": 265,
+      "text": "patrizia.galli@example-mail.ch",
+      "type": "EMAIL"
+    }
+  ]
+}

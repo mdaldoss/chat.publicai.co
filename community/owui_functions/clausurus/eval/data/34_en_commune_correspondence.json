@@ -1,0 +1,31 @@
+{
+  "id": "34_en_commune_correspondence",
+  "lang": "en",
+  "category": "commune_correspondence",
+  "entities": [
+    {
+      "start": 70,
+      "end": 83,
+      "text": "Susan Example",
+      "type": "PERSON"
+    },
+    {
+      "start": 144,
+      "end": 176,
+      "text": "Station Avenue 39, 1000 Faketown",
+      "type": "ADDRESS"
+    },
+    {
+      "start": 205,
+      "end": 234,
+      "text": "susan.example@example-mail.ch",
+      "type": "EMAIL"
+    },
+    {
+      "start": 263,
+      "end": 279,
+      "text": "the mayor's wife",
+      "type": "CONTEXTUAL"
+    }
+  ]
+}

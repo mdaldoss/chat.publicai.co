@@ -1,0 +1,37 @@
+{
+  "id": "03_de_citizen_complaint",
+  "lang": "de",
+  "category": "citizen_complaint",
+  "entities": [
+    {
+      "start": 42,
+      "end": 54,
+      "text": "Werner Hodel",
+      "type": "PERSON"
+    },
+    {
+      "start": 72,
+      "end": 103,
+      "text": "Musterweg 97, 9999 Fantasiedorf",
+      "type": "ADDRESS"
+    },
+    {
+      "start": 169,
+      "end": 185,
+      "text": "756.5868.5702.23",
+      "type": "AHV"
+    },
+    {
+      "start": 212,
+      "end": 228,
+      "text": "+41 79 181 39 22",
+      "type": "PHONE"
+    },
+    {
+      "start": 252,
+      "end": 281,
+      "text": "mein Nachbar im dritten Stock",
+      "type": "CONTEXTUAL"
+    }
+  ]
+}

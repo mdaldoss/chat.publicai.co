@@ -1,0 +1,25 @@
+{
+  "id": "19_fr_bank_letter",
+  "lang": "fr",
+  "category": "bank_letter",
+  "entities": [
+    {
+      "start": 11,
+      "end": 24,
+      "text": "Marc Pillonel",
+      "type": "PERSON"
+    },
+    {
+      "start": 82,
+      "end": 103,
+      "text": "CH3801562182564559272",
+      "type": "IBAN"
+    },
+    {
+      "start": 126,
+      "end": 165,
+      "text": "Chemin des Fleurs 15, 8999 Musterhausen",
+      "type": "ADDRESS"
+    }
+  ]
+}

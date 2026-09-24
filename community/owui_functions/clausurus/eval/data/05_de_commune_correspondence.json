@@ -1,0 +1,31 @@
+{
+  "id": "05_de_commune_correspondence",
+  "lang": "de",
+  "category": "commune_correspondence",
+  "entities": [
+    {
+      "start": 61,
+      "end": 70,
+      "text": "Urs Hodel",
+      "type": "PERSON"
+    },
+    {
+      "start": 136,
+      "end": 173,
+      "text": "Bahnhofstrasse 137, 3999 Beispieldorf",
+      "type": "ADDRESS"
+    },
+    {
+      "start": 221,
+      "end": 246,
+      "text": "urs.hodel@example-mail.ch",
+      "type": "EMAIL"
+    },
+    {
+      "start": 291,
+      "end": 320,
+      "text": "mein Nachbar im dritten Stock",
+      "type": "CONTEXTUAL"
+    }
+  ]
+}

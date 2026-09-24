@@ -1,0 +1,37 @@
+{
+  "id": "33_en_citizen_complaint",
+  "lang": "en",
+  "category": "citizen_complaint",
+  "entities": [
+    {
+      "start": 27,
+      "end": 41,
+      "text": "Susan Ashworth",
+      "type": "PERSON"
+    },
+    {
+      "start": 55,
+      "end": 90,
+      "text": "Station Avenue 191, 6999 Paesefinto",
+      "type": "ADDRESS"
+    },
+    {
+      "start": 160,
+      "end": 176,
+      "text": "756.4782.7424.71",
+      "type": "AHV"
+    },
+    {
+      "start": 198,
+      "end": 214,
+      "text": "+41 79 340 44 52",
+      "type": "PHONE"
+    },
+    {
+      "start": 240,
+      "end": 271,
+      "text": "the new caretaker of building 4",
+      "type": "CONTEXTUAL"
+    }
+  ]
+}

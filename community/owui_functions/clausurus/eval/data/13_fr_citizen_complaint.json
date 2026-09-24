@@ -1,0 +1,37 @@
+{
+  "id": "13_fr_citizen_complaint",
+  "lang": "fr",
+  "category": "citizen_complaint",
+  "entities": [
+    {
+      "start": 38,
+      "end": 50,
+      "text": "Odile Dupont",
+      "type": "PERSON"
+    },
+    {
+      "start": 63,
+      "end": 101,
+      "text": "Avenue de la Gare 172, 6999 Paesefinto",
+      "type": "ADDRESS"
+    },
+    {
+      "start": 167,
+      "end": 183,
+      "text": "756.2195.4781.09",
+      "type": "AHV"
+    },
+    {
+      "start": 211,
+      "end": 227,
+      "text": "+41 79 541 55 64",
+      "type": "PHONE"
+    },
+    {
+      "start": 257,
+      "end": 286,
+      "text": "mon voisin du troisième étage",
+      "type": "CONTEXTUAL"
+    }
+  ]
+}

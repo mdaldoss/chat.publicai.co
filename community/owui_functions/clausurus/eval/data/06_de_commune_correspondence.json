@@ -1,0 +1,31 @@
+{
+  "id": "06_de_commune_correspondence",
+  "lang": "de",
+  "category": "commune_correspondence",
+  "entities": [
+    {
+      "start": 65,
+      "end": 82,
+      "text": "Silvia Zurbriggen",
+      "type": "PERSON"
+    },
+    {
+      "start": 148,
+      "end": 178,
+      "text": "Kirchweg 57, 3999 Beispieldorf",
+      "type": "ADDRESS"
+    },
+    {
+      "start": 226,
+      "end": 259,
+      "text": "silvia.zurbriggen@example-mail.ch",
+      "type": "EMAIL"
+    },
+    {
+      "start": 304,
+      "end": 336,
+      "text": "die Frau des Gemeindepräsidenten",
+      "type": "CONTEXTUAL"
+    }
+  ]
+}
