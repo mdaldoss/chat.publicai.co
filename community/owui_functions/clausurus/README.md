@@ -1,174 +1,221 @@
 # Clausurus 🔒
 
-An Open WebUI **Pipe** function that lets you send a message to an external,
-bring-your-own-key LLM provider (OpenAI, Gemini, Anthropic, or OpenRouter)
-with direct personal identifiers removed first. Clausurus adds four entries
-to the model picker — *Clausurus 🔒 · OpenAI*, *· Gemini*, *· Anthropic*,
-*· OpenRouter* — each requiring the user's own API key.
+An Open WebUI **Pipe** function for sending a message to an external,
+bring-your-own-key LLM (OpenAI, Gemini, Anthropic or OpenRouter) with personal
+details hidden first. It adds four entries to the model menu, *Clausurus 🔒 ·
+OpenAI*, *· Gemini*, *· Anthropic* and *· OpenRouter*, next to the Apertus models
+users already have.
 
-Built for the Swiss {ai} Weeks "Public AI" hackathon challenge.
+Built for the Swiss {ai} Weeks "Public AI" challenge.
+
+![Review dialog](demo/screenshots/review-dialog.png)
 
 ## What it does
 
-1. Reads every message in the conversation (all turns, every time — not
-   just the new one, so edits and follow-ups are covered too).
-2. Finds personal identifiers with two layers:
-   - **Rules**: regex + checksum validation for AHV/AVS numbers, IBANs,
-     Swiss UID/CHE numbers, payment cards (Luhn), emails, Swiss phone
-     numbers, IP addresses, vehicle plates, and DE/FR/IT/EN-style street
-     addresses and postcodes.
-   - **Apertus**: an LLM call (via any OpenAI-compatible Apertus endpoint,
-     configurable — the Swiss AI Weeks hackathon endpoint by default) that
-     finds names, organisations, locations, and *contextual* identifiers
-     rules can't — e.g. "the only pharmacist in the village" or "the
-     mayor's wife". Apertus is used only for this detection step; it is
-     never the provider your message is sent to unless you separately
-     choose Apertus as your normal chat model in Open WebUI (Clausurus
-     doesn't touch that path).
-3. Replaces each finding with a numbered placeholder (`[PERSON_1]`,
-   `[ADDRESS_1]`, `[CONTEXT_1: a specific local individual]`, ...),
-   consistently across the conversation.
-4. Sends the redacted messages to the provider and model you picked, using
-   your own API key.
-5. Restores the real values in the streamed reply before you see it
-   (buffered so a placeholder split across two stream chunks is still
-   caught).
-6. Shows a status line with how many identifiers of each type were
-   redacted.
+1. **Finds personal data** in every message of the conversation (the whole history
+   is sent to the provider on each turn, so it is all redacted each time), in two
+   layers:
+   - **Rules**: AHV/AVS numbers, IBANs, Swiss UID/CHE numbers and payment cards
+     (all checksum-validated), emails, Swiss phone numbers, IP addresses, vehicle
+     plates, DE/FR/IT/EN street addresses and postcodes, and names after a title
+     ("Frau", "M.", "Sig.ra", "Mr").
+   - **Apertus**: finds names, organisations, places and *contextual* identifiers
+     that rules can't, such as "the only pharmacist in the village" or "the mayor's
+     wife". Apertus is only asked *what to hide*; it never answers the question.
+2. **Lets you review it** (on by default, per user). Before anything is sent, a
+   dialog shows your message with every finding highlighted, what found it (rules,
+   Apertus or you), and where the data goes. You can:
+   - click a highlight or untick a row to send it as written (false positive);
+   - type a phrase, or select text and press *Hide selected text*, to hide
+     something that was missed;
+   - switch the preview to *what the provider receives*;
+   - cancel. Nothing is sent unless you press *Send*.
 
-If Apertus is unreachable, Clausurus **blocks the request by default**
-rather than silently sending less-redacted text (configurable via valves —
-see below).
+   Your choices are remembered for the rest of the chat and shown again (and can be
+   reversed) the next time.
+3. **Replaces** each hidden value with a placeholder (`[PERSON_1]`, `[AHV_1]`,
+   `[CONTEXT_1: a specific local individual]`, ...), consistently across the
+   conversation, and tells the model to keep placeholders as they are.
+4. **Sends** the redacted conversation with the user's own API key.
+5. **Restores** the real values in the reply as it streams in.
+6. **Adds a privacy report** under the reply (optional, per user): each hidden
+   value, the placeholder the provider saw, what found it, what you chose to send
+   as written, and where the data went.
 
-## Threat model — read this before you rely on it
+![What the provider receives](demo/screenshots/review-what-provider-receives.png)
 
-**What Clausurus does**: prevents the chosen external provider from seeing
-the identifiers it recognizes — structured PII (AHV, IBAN, email, phone,
-address, ...) and, when Apertus is enabled, personal names and some
-contextual descriptions.
+![Privacy report](demo/screenshots/privacy-report.png)
 
-**What Clausurus does NOT do**:
+### Where your data goes
 
-- **It does not guarantee anonymity.** Contextual re-identification stays
-  possible: if the redacted text still contains enough unusual detail (a
-  rare combination of facts, a very specific date and place), a determined
-  reader — human or model — may be able to work out who it's about even
-  with every name removed.
-- **Pseudonymized text can still be personal data.** Under the Swiss FADP
-  and the GDPR, text that has had identifiers replaced with placeholders is
-  not automatically "anonymous" in the legal sense if the original mapping
-  exists anywhere (which it does here, for the duration of the request, in
-  order to restore the reply) or if the person is still identifiable from
-  context. Clausurus reduces exposure; it does not change the legal
-  classification of the data on its own.
-- **This is not a compliance certification.** Nobody has audited this
-  against FADP, GDPR, or any other standard. Treat it as a best-effort
-  technical control, not a legal opinion.
-- **It only sees text.** Images, PDFs, and other attachments are blocked by
-  default rather than passed through unredacted (see Limits).
-- **Detection is not perfect.** See Eval results below for measured
-  precision/recall and, importantly, the *leak rate* on a held-out
-  synthetic test set — the number of identifiers that would have reached
-  the provider unredacted.
-- **Apertus itself sees the raw text.** The entity-detection call sends
-  your full, unredacted message to whichever Apertus endpoint is
-  configured, in order to find what to redact. By default this is the
-  Swiss AI Weeks hackathon endpoint (Swisscom-hosted); point the
-  `apertus_api_base` valve at a different Apertus deployment if you don't
-  want that.
+Both the dialog and the report show the path a message takes and what each hop
+sees:
 
-In short: Clausurus raises the bar for what a third-party LLM provider sees.
-It is not a guarantee, and it does not replace judgment about what you
-paste into a chat box.
+| Hop | Where | Sees |
+|---|---|---|
+| You | Your device | Original text |
+| Open WebUI | Set by the admin (`server_location`); chat.publicai.co runs in AWS eu-central-2, Zürich | Original text |
+| Apertus | Set by the admin (`apertus_location`); default endpoint verified in Zürich, Switzerland (Swisscom, AS3303) | Original text, to find what to hide; returns a list only |
+| External provider | Company jurisdiction: 🇺🇸 United States for all four | Redacted text only |
 
-## Valves (admin settings)
+The external providers are shown by **company jurisdiction**, not server location:
+their API hostnames resolve to anycast networks (Cloudflare, Google, Anthropic) and
+they don't disclose which region serves a given request. Locations are labels an
+admin sets, not live measurements; update them if you change the endpoints.
+
+## Threat model: read this before relying on it
+
+**What Clausurus does**: stops the chosen external provider from seeing the
+personal details it finds (or that you mark), and shows you exactly what those are.
+
+**What Clausurus does not do**:
+
+- **It does not guarantee anonymity.** Detection misses things (see the eval
+  below), and the details left in the text can still point to a person: a rare
+  job, a small village, a specific date.
+- **Pseudonymised text can still be personal data.** Under the Swiss FADP and the
+  GDPR, text with identifiers replaced by placeholders is not automatically
+  anonymous, especially while the mapping back to real values exists (it does,
+  here, for the duration of the request) or when the person is identifiable from
+  context.
+- **It is not a compliance certification.** Nobody has audited it against the FADP,
+  the GDPR or any standard. It is a best-effort technical control.
+- **Apertus sees the original text.** To find what to hide, the full message goes
+  to the configured Apertus endpoint (by default the Swiss AI Weeks endpoint
+  hosted by Swisscom in Zürich). Point `apertus_api_base` at an Apertus deployment
+  you trust, for example the platform's own.
+- **The Open WebUI server sees the original text**, as it does for every chat.
+- **Text only.** Images and files can't be redacted, so they are not sent to the
+  provider unless an admin enables `allow_images`.
+- **Apertus output is not trusted blindly.** Only spans that appear word for word
+  in your message are used, so a confused or manipulated Apertus answer can't
+  inject text. It can still *miss* things; the rules layer and the review dialog
+  are the backstop.
+- **If Apertus fails**, the request is blocked by default rather than sent with
+  less redaction (configurable).
+
+## Settings
+
+### Admin valves
 
 | Valve | Default | Purpose |
 |---|---|---|
-| `apertus_api_base` | Swiss AI Weeks hackathon endpoint | OpenAI-compatible Apertus endpoint used only for entity detection |
-| `apertus_api_key` | *(empty)* | Key for the endpoint above |
+| `apertus_api_base` | Swiss AI Weeks endpoint | OpenAI-compatible Apertus endpoint, used only for detection |
+| `apertus_api_key` | *(empty)* | Key for that endpoint |
 | `apertus_model` | `swiss-ai/Apertus-v1.5-70B` | Model name at that endpoint |
-| `enable_apertus` | `true` | Use Apertus at all (off = regex/checksums only) |
-| `block_on_apertus_failure` | `true` | If Apertus is unreachable: block the request (safer) vs. send with regex-only redaction and a warning |
-| `require_confirmation` | `false` | Ask the user to confirm the redacted text via a dialog before sending |
-| `openai_api_key` / `gemini_api_key` / `anthropic_api_key` / `openrouter_api_key` | *(empty)* | Admin-provided fallback keys, only meant for a demo — leave empty in production so each user brings their own |
-| `openai_model` / `gemini_model` / `anthropic_model` / `openrouter_model` | e.g. `gpt-4o-mini` | Model to call at each provider |
+| `apertus_location` | `🇨🇭 Zürich, Switzerland · Swisscom` | Shown in the data-flow view |
+| `server_location` | *(generic label)* | Where this Open WebUI runs, shown in the data-flow view |
+| `enable_apertus` | `true` | Off = rules and checksums only |
+| `block_on_apertus_failure` | `true` | Block the request if Apertus fails, instead of rules-only with a warning |
+| `allow_images` | `false` | Send image/file parts unredacted |
+| `review_timeout_seconds` | `300` | Close the review dialog (and cancel) after this |
+| `*_api_key` | *(empty)* | Admin fallback keys, for demos only; every user would spend them |
+| `*_model` | `gpt-4.1-mini`, `gemini-2.5-flash`, `claude-sonnet-5`, `openai/gpt-4.1-mini` | Model per provider |
 
-## User settings (bring your own key)
+### User settings (Settings → Functions → Clausurus)
 
-Each user sets their own key per provider in the function's per-user
-valves (`openai_api_key`, `gemini_api_key`, `anthropic_api_key`,
-`openrouter_api_key`). A user key always takes priority over an admin
-fallback key.
+| Setting | Default | Purpose |
+|---|---|---|
+| `review_before_sending` | on | Show the review dialog before each message |
+| `show_privacy_report` | on | Add the privacy report under each reply |
+| `openai_api_key`, `gemini_api_key`, `anthropic_api_key`, `openrouter_api_key` | *(empty)* | Your own keys. A user key always wins over an admin fallback key |
 
 ## Limits
 
-- Images and other non-text attachments are not anonymized and are
-  currently sent through untouched by Clausurus if present — treat
-  Clausurus as text-only and avoid attaching files/images on a Clausurus
-  model until this is addressed.
-- The rule-based recognizers are tuned for Swiss/DE-FR-IT-EN formats; other
-  countries' ID and phone formats will mostly be missed by rules (Apertus
-  may still catch some as generic PERSON/LOCATION entities).
-- Apertus is called once per non-empty message per turn; on a long
-  conversation this means re-scanning earlier turns every time, which adds
-  latency and Apertus API usage. There is no persistent cache across
-  requests (by design, to stay stateless across replicas).
-- Placeholder restoration is text-based (`str.replace`); if the model's
-  reply happens to contain a string identical to a placeholder token that
-  wasn't meant as one, it will still be replaced.
+- **Detection misses contextual phrases.** In the eval, all remaining leaks are
+  descriptions like "my neighbour on the third floor". In live testing, "Die Frau
+  des Gemeindepräsidenten" in the demo letter was flagged only partly
+  ("Gemeindepräsidenten") or not at all, depending on the run. Keep the review
+  step on when it matters.
+- **Review decisions live in server memory**, per user and chat. After a restart,
+  a function update, or on another replica, they are forgotten: things you chose to
+  send as written get hidden again (safe), but **phrases you added are no longer
+  hidden automatically** until you add them again. With the review step on you see
+  this in the dialog; with it off you don't.
+- **The review dialog is JavaScript that runs in the Open WebUI page** (Open WebUI's
+  `execute` event). That is how Open WebUI lets functions show custom UI, and it
+  means admins should only install this function from a source they trust. The
+  dialog inserts all message text as plain text, never as HTML.
+- **Title, tag and follow-up generation** go through Clausurus too when it is the
+  selected model. They are redacted the same way, silently (no dialog or report).
+- **Formats**: the rules are tuned for Swiss and DE/FR/IT/EN formats; other
+  countries' ID and phone formats mostly rely on Apertus.
+- **Restoring** is plain text replacement. If the model rephrases a placeholder
+  (`[Person 1]`), that value stays a placeholder in the reply.
 
 ## Eval results
 
-See [`eval/results.md`](eval/results.md) for the full table. Summary, on 40
-synthetic Swiss texts (DE/FR/IT/EN; citizen complaints, commune
-correspondence, HR emails, bank-style letters; 172 gold-annotated
-identifier spans; dataset generated by `eval/gen_dataset.py`, seeded and
-reproducible):
+40 synthetic Swiss texts (DE/FR/IT/EN; complaint letters, commune correspondence,
+HR emails, bank-style letters) with 172 annotated identifiers, generated by
+`eval/gen_dataset.py` (seeded, reproducible). Full table: [`eval/results.md`](eval/results.md).
 
-- **Rules only**: perfect precision and recall (1.00 / 1.00) on structured
-  identifiers it's built for (AHV, IBAN, email, phone, address), but only
-  19% recall on personal names (bare names without an honorific are
-  invisible to regex) and **0%** on contextual identifiers, by design.
-  **63 of 172 identifiers (37%) would leak** to the external provider.
-- **Rules + Apertus**: PERSON recall goes to 100% (0.74 precision — Apertus
-  over-flags some names), CONTEXTUAL recall goes to 79% (0.66 precision).
-  **Only 1 of 172 identifiers (0.6%) leaked** — a French contextual phrase
-  ("mon voisin du troisième étage" / "my neighbour on the third floor")
-  that Apertus missed. Apertus also flagged LOCATION and ORG spans (38 and
-  5 respectively) that don't correspond to any gold entity in this
-  dataset — over-redaction, not a privacy risk, but worth knowing before
-  you rely on the output text remaining fully readable.
-  Measured average latency per document was ~4.4s in this run, but that
-  includes retry/backoff against the shared hackathon Apertus endpoint's
-  rate limit (a single uncontended call took ~1.8s in manual testing) —
-  don't read it as the latency Clausurus adds per chat message in
-  production.
+| | Rules only | Rules + Apertus |
+|---|---|---|
+| **Identifiers leaked** (no redaction overlapping them) | **63 / 172 (37%)** | **4 / 172 (2.3%)** |
+| AHV, IBAN, email, phone, address recall | 1.00 | 1.00 |
+| Personal names recall | 0.19 | 1.00 (precision 0.76) |
+| Contextual identifiers recall | 0.00 | 0.75 (precision 0.58) |
 
-Full per-type table and the one leaked span above: `eval/results.md`.
+- All 4 remaining leaks are contextual phrases ("mein Nachbar im dritten Stock",
+  "mon voisin du troisième étage", "le nouveau concierge de l'immeuble 4", "my
+  neighbour on the third floor").
+- Apertus also flags place names that aren't in the gold set (33 LOCATION spans):
+  over-redaction, not a leak, but it makes the text sent less readable.
+- An earlier version reported 1 / 172. That run was flawed: the Apertus prompt used
+  two example phrases that also appear in the eval set. The prompt examples now
+  share no phrase with the eval set, and 4 / 172 is the clean number.
+- This is Clausurus' own eval on its own templated synthetic data, written by the
+  same people as the detector. It is a development signal, not an independent
+  audit; expect more misses on real correspondence.
 
-This is Clausurus' own eval on Clausurus' own synthetic dataset — a
-development-time signal, not an independent audit. The dataset is
-templated and may not reflect the diversity of real correspondence;
-false-negative rates on real-world text are likely higher than shown here.
+## Try it
 
-## Development
+**Tests** (mocked, no network or keys):
 
 ```bash
-# regenerate the eval dataset (deterministic, seeded)
-python eval/gen_dataset.py
+pytest community/owui_functions/clausurus/tests -v
+```
 
-# run the eval (rules-only needs no key/network)
-python eval/run_eval.py --rules-only
-python eval/run_eval.py --apertus-key YOUR_KEY   # or set APERTUS_API_KEY
+**See the redaction without Open WebUI:**
 
-# tests (fully mocked, no network/keys needed)
-pytest tests/ -v
+```bash
+cd community/owui_functions/clausurus/demo
+python show_redaction.py letter_de.txt --no-apertus        # rules only
+APERTUS_API_KEY=... python show_redaction.py letter_de.txt  # rules + Apertus
+```
 
-# demo: side-by-side original vs. what's actually sent
-cd demo && python show_redaction.py letter_de.txt --no-apertus
+**Full UI with Docker:**
+
+```bash
+cd community/owui_functions/clausurus/demo
+cp .env.example .env   # fill in WEBUI_SECRET_KEY, APERTUS_API_KEY and one provider key
+docker compose up
+# open http://localhost:3000, log in as admin@example.com / clausurus-demo-only,
+# pick "Clausurus 🔒 · <provider>" in the model menu
+```
+
+**Full UI without Docker** (what was used to test this function):
+
+```bash
+pip install open-webui==0.11.3
+WEBUI_SECRET_KEY=change-me open-webui serve --port 8080 &
+cd community/owui_functions/clausurus/demo
+WEBUI_BASE_URL=http://localhost:8080 APERTUS_API_KEY=... OPENROUTER_API_KEY=... \
+  python install_function.py
+```
+
+**On an existing Open WebUI**: Admin Panel → Functions → + → paste `clausurus.py`,
+enable it, then set the Apertus key and locations in its valves. Each user adds
+their own provider key in Settings → Functions → Clausurus.
+
+**Eval:**
+
+```bash
+python eval/gen_dataset.py                    # regenerate the dataset
+python eval/run_eval.py --rules-only          # no key needed
+APERTUS_API_KEY=... python eval/run_eval.py   # rules + Apertus (~4 min, rate-limited)
 ```
 
 ## License
 
-MIT, same as the rest of this repository.
+MIT, like the rest of this repository.
