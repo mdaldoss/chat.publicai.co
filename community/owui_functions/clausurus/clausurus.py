@@ -1,7 +1,7 @@
 """
 title: Clausurus
 author: Public AI community
-version: 0.2.0
+version: 0.3.0
 license: MIT
 description: Hides personal data (rules + Apertus) before a message reaches an external bring-your-own-key LLM, lets you review what is hidden, and restores it in the reply. Not an anonymity guarantee; see README.md.
 """
@@ -167,15 +167,270 @@ RULE_PATTERNS: list[tuple[str, re.Pattern, Optional[callable]]] = [
 ]
 
 
+# --------------------------------------------------------------------------
+# International formats (added in v0.3)
+# --------------------------------------------------------------------------
+
+
+def _digits(s: str) -> int:
+    return sum(c.isdigit() for c in s)
+
+
+def _is_coordinate_pair(s: str) -> bool:
+    nums = re.findall(r"-?\d+(?:\.\d+)?", s)
+    if len(nums) != 2 or "." not in s:
+        return False
+    lat, lon = float(nums[0]), float(nums[1])
+    # at least one value with two integer digits keeps small code arrays like [0.5, 1.25] out
+    return abs(lat) <= 90 and abs(lon) <= 180 and max(len(n.lstrip("-").split(".")[0]) for n in nums) >= 2
+
+
+INTERNATIONAL_PATTERNS: list[tuple[str, re.Pattern, Optional[callable]]] = [
+    # +44 20 7946 0958, 0049 30 1234567, +1 (555) 010-0199
+    (
+        "PHONE",
+        re.compile(r"(?<![\w+])(?:\+|00)[1-9]\d{0,2}(?:[ .\-]?\(?\d{1,5}\)?){2,6}(?!\w)"),
+        lambda m: 8 <= _digits(m) <= 15,
+    ),
+    # national numbers with a trunk 0: 01 23 45 67 89, 030 1234 5678, 061-4670-4739
+    (
+        "PHONE",
+        re.compile(r"(?<![\w.,/])0\d{1,4}(?:[ ./\-]\d{2,5}){2,4}(?![\w.,/])"),
+        lambda m: 9 <= _digits(m) <= 13 and not re.fullmatch(r"\d{1,2}[./]\d{1,2}[./]\d{2,4}", m),
+    ),
+    (
+        "IP",
+        re.compile(r"\b(?:[0-9a-fA-F]{1,4}:){7}[0-9a-fA-F]{1,4}\b|\b(?:[0-9a-fA-F]{1,4}:){1,6}:(?:[0-9a-fA-F]{1,4}\b)?"),
+        lambda m: m.count(":") >= 3,
+    ),
+    ("GEO", re.compile(r"\[\s*-?\d{1,2}\.\d+\s*,\s*-?\d{1,3}\.\d+\s*\]"), _is_coordinate_pair),
+    ("GEO", re.compile(r"(?<![\w.])-?\d{1,2}\.\d{4,}\s*,\s*-?\d{1,3}\.\d{4,}(?![\w.])"), _is_coordinate_pair),
+    # number first: "12 rue de la Paix", "242 Fox Circle", "5 Via Roma"
+    (
+        "ADDRESS",
+        re.compile(
+            rf"\b\d{{1,5}}[a-z]?,?{SP}+(?i:rue|avenue|av\.|boulevard|bd|chemin|ch\.|allée|place|impasse|quai|route|"
+            rf"cours|via|viale|piazza|corso|vicolo){SP}+(?i:de{SP}+la{SP}+|de{SP}+l['’]|du{SP}+|des{SP}+|de{SP}+|d['’]|"
+            rf"del(?:la|lo)?{SP}+|dei{SP}+)?[A-ZÀ-ÖØ-Þ][\w'’-]*(?:{SP}+[A-ZÀ-ÖØ-Þ][\w'’-]*){{0,3}}"
+        ),
+        None,
+    ),
+    (
+        "ADDRESS",
+        re.compile(
+            rf"\b\d{{1,5}}[a-z]?,?{SP}+(?:[A-Z][\w'’-]*{SP}+){{1,3}}(?:Street|St\.|Avenue|Ave\.|Road|Rd\.|Lane|Ln\.|"
+            rf"Drive|Dr\.|Boulevard|Blvd\.|Way|Court|Ct\.|Place|Pl\.|Terrace|Close|Crescent|Circle|Square|Parkway|"
+            rf"Highway|Hill|Row|Gardens|Grove|Walk)\b"
+        ),
+        None,
+    ),
+    # 5-digit postcodes with a town (DE/FR/IT/ES), UK postcodes
+    ("POSTAL", re.compile(rf"\b\d{{5}}{SP}+{TOWN}\b"), None),
+    ("POSTAL", re.compile(r"\b[A-Z]{1,2}\d[A-Z\d]?[ ]?\d[A-Z]{2}\b"), None),
+    # identifier-looking tokens: long digit runs, SSN-style groups, upper-case letters mixed with digits
+    ("ID", re.compile(r"(?<![\w.,])\d{9,16}(?![\w.,])"), None),
+    ("ID", re.compile(r"\b\d{3}[- ]\d{2}[- ]\d{4}\b"), None),
+    (
+        "ID",
+        re.compile(r"\b(?=[A-Z0-9-]{7,20}\b)(?=(?:[A-Z-]*\d){3})(?=[\d-]*[A-Z])[A-Z0-9]+(?:-[A-Z0-9]+)*\b"),
+        None,
+    ),
+]
+
+
+# --------------------------------------------------------------------------
+# Labelled fields (added in v0.3): "Passport: X", "**Username:** x", "\"ssn\": \"x\"",
+# "<FirstName>x</FirstName>", "my password is x". Common when people paste forms,
+# tables, JSON or XML exports.
+# --------------------------------------------------------------------------
+
+MONTH = (
+    r"(?i:jan(?:uary|uar|vier)?|feb(?:ruary|ruar)?|f[ée]v(?:rier)?|m[äa]r(?:ch|z|s)?|apr(?:il|ile)?|avr(?:il)?|"
+    r"may|mai|maggio|june?|juni|juin|giugno|july?|juli|juillet|luglio|aug(?:ust)?|ao[uû]t|agosto|"
+    r"sep(?:t(?:ember|embre)?)?|settembre|o[ck]t(?:ober|obre)?|ottobre|nov(?:ember|embre)?|"
+    r"de[cz](?:ember|embre)?|d[ée]cembre|dicembre|gennaio|febbraio|marzo|aprile)\.?"
+)
+DATE = (
+    rf"(?:\d{{1,4}}[./-]\d{{1,2}}[./-]\d{{2,4}}"
+    rf"|\d{{1,2}}(?:st|nd|rd|th|er|e|ème|º|°|o)?\.?{SP}+{MONTH}{SP}*,?{SP}*\d{{2,4}}"
+    rf"|{MONTH}{SP}+\d{{1,2}}(?:st|nd|rd|th|er|e|ème|º|°|o)?,?{SP}+\d{{2,4}}"
+    rf"|{MONTH}{SP}*/{SP}*\d{{2,4}})"
+)
+
+FIELD_NAMES = {
+    "PERSON": [
+        "name", "full name", "first name", "firstname", "given name", "middle name", "second name", "last name",
+        "lastname", "surname", "family name", "maiden name", "vorname", "nachname", "familienname", "prénom",
+        "prenom", "nom", "nom de famille", "nome", "cognome", "nome completo",
+    ],
+    "ID": [
+        "passport", "id card", "identity card", "identification card", "identification", "national id",
+        "social security", "social number", "ssn", "insurance number", "tax id", "tax number", "driver license",
+        "driver's license", "drivers license", "driving licence", "driving license", "license", "licence", "ahv",
+        "avs", "reisepass", "pass", "ausweis", "identitätskarte", "id-karte", "führerschein", "führerausweis",
+        "sozialversicherungsnummer", "versichertennummer", "steuernummer", "steuer-id", "passeport",
+        "carte d'identité", "permis de conduire", "sécurité sociale", "securite sociale", "passaporto",
+        "carta d'identità", "carta di identità", "patente", "patente di guida", "codice fiscale", "previdenza",
+        "previdenza sociale", "numero di previdenza sociale", "numéro de sécurité sociale",
+        "tessera sanitaria", "customer number", "account number", "kundennummer", "id",
+    ],
+    "USERNAME": [
+        "username", "user name", "user", "login", "user id", "userid", "handle", "nickname", "screen name",
+        "benutzername", "benutzer", "nutzername", "nom d'utilisateur", "identifiant", "utilisateur", "pseudo",
+        "nome utente", "utente",
+    ],
+    "SECRET": [
+        "password", "passwd", "pwd", "passcode", "pin", "pin code", "passwort", "kennwort", "mot de passe",
+        "code secret", "parola d'ordine", "codice pin", "codice segreto",
+    ],
+    "BIRTHDATE": [
+        "date of birth", "birth date", "birthdate", "birthday", "dob", "born", "born on", "geburtsdatum",
+        "geburtstag", "geboren", "geboren am", "date de naissance", "né le", "née le", "né", "née",
+        "data di nascita", "nato il", "nata il", "nato", "nata",
+    ],
+    "PHONE": [
+        "phone", "telephone", "tel", "mobile", "cell", "phone number", "contact number", "telefon", "handy",
+        "natel", "mobilnummer", "téléphone", "portable", "numéro de téléphone", "telefono", "cellulare",
+    ],
+    "ADDRESS": [
+        "address", "home address", "street", "street address", "residence", "adresse", "wohnadresse", "strasse",
+        "straße", "wohnort", "domicile", "indirizzo", "residenza",
+    ],
+    # house numbers and flat / unit numbers: must contain a digit (see _valid_field)
+    "BUILDING": [
+        "building", "building number", "house number", "hausnummer", "numero civico", "secondary address",
+        "second address", "additional address", "apartment", "apt", "suite", "unit", "flat", "wohnung",
+        "appartement", "interno",
+    ],
+    "POSTAL": ["postcode", "post code", "postal code", "zip", "zip code", "plz", "postleitzahl", "code postal", "cap"],
+    "GEO": ["coordinates", "geo coordinates", "geocoordinates", "gps", "location", "koordinaten", "geokoordinaten",
+            "coordonnées", "coordinate", "posizione"],
+}
+FIELD_SUFFIX = r"(?i:[ _\-]?(?:number|no\.?|nr\.?|nummer|numéro|numero|n°|code))?"
+
+_VALUE = {
+    "PERSON": rf"{CAPWORD}(?:[ \t-]+{CAPWORD}){{0,3}}",
+    "ID": r"(?=[^\s,;]*\d)[A-Za-z0-9](?:[A-Za-z0-9.\-/]|[ ](?=\S*\d))*[A-Za-z0-9]",
+    # has a digit or . _ @, or is the whole field ("Username: must be unique" is not a username)
+    "USERNAME": r"(?:[A-Za-z0-9._@+\-]*[\d._@][A-Za-z0-9._@+\-]*|[A-Za-z0-9._@+\-]{3,40}(?=[ \t]*(?:$|[\"'<,;|*]|[ \t]{2})))",
+    "SECRET": r"\S{3,64}",
+    "BIRTHDATE": DATE,
+    "PHONE": r"\+?\(?\d[\d ()./\-]{5,22}\d",
+    "ADDRESS": r"[^\n\"<|;]{1,80}?(?=[ \t]{2,}|[ \t]+[-–][ \t]|[\"<|;\n]|\*\*|$)",
+    "BUILDING": r"[A-Za-z]{0,12}[ \t]?\d{1,5}[A-Za-z]?",
+    "POSTAL": r"[A-Za-z0-9](?:[A-Za-z0-9\-]|[ ](?=[A-Za-z0-9]{2,4}\b)){1,9}",
+    "GEO": r"\[?\s*-?\d{1,3}\.\d+\s*,\s*-?\d{1,3}\.\d+\s*\]?",
+}
+
+
+def _valid_field(etype: str, value: str) -> bool:
+    value = value.strip()
+    if not value:
+        return False
+    if etype == "ID":
+        if not all(_digits(part) for part in value.split()):  # "CHF 1'250.50", "6,8 %"
+            return False
+        if value.replace(" ", "").isdigit():
+            return 5 <= _digits(value) <= 20
+        return 5 <= len(value) <= 40 and _digits(value) >= 3
+    if etype == "BUILDING":
+        return _digits(value) >= 1
+    if etype == "USERNAME":
+        return len(value) >= 3 and not value.isdigit() and not any(c.isspace() for c in value)
+    if etype == "BIRTHDATE":
+        return _digits(value) >= 2
+    if etype == "SECRET":
+        if any(c.isspace() for c in value):  # "Mot de passe", a sentence about passphrases
+            return False
+        # real passwords mix character classes; "Password: at least 12 characters" does not
+        return len(value) >= 4 and (
+            any(c.isdigit() for c in value)
+            or any(not c.isalnum() for c in value)
+            or (value.lower() != value and value.upper() != value and not value.istitle())
+        )
+    if etype == "PHONE":
+        return 7 <= _digits(value) <= 15
+    if etype in ("POSTAL",):
+        return _digits(value) >= 1 and len(value) <= 10
+    if etype == "GEO":
+        return _is_coordinate_pair(value)
+    return len(value) >= 2
+
+
+def _names_regex(names: list[str]) -> str:
+    parts = []
+    for name in sorted(names, key=len, reverse=True):
+        pattern = re.escape(name).replace(r"\ ", r"[ _\-]?").replace("'", "['’]?").replace(r"\-", r"[ _\-]?")
+        parts.append(pattern)
+    return "|".join(parts)
+
+
+MD = r"(?:\*\*|__)?"
+TAG_CLOSE = r"(?:</(?:strong|b|th|td|dt|label|span)>)?"
+TAG_OPEN = r"(?:<(?:td|dd|span|strong|b)>)?"
+QUOTE = r"[\"'“”«]?"
+EXPLICIT_SEP = rf"{MD}{TAG_CLOSE}{QUOTE}{SP}*[:=]{SP}*{MD}{TAG_CLOSE}{TAG_OPEN}{SP}*{QUOTE}{SP}*"
+VERB = r"(?i:is|ist|lautet|est|è|was|war|am|on|le|il)"
+VERB_SEP = rf"(?:{EXPLICIT_SEP}|{SP}+{VERB}{SP}+{QUOTE})"
+LOOSE_SEP = rf"(?:{EXPLICIT_SEP}|{SP}+(?:{VERB}{SP}+)?{QUOTE}{MD})"
+# "passport X123456", "password aE9*" work without a colon; "user is jdoe" needs the verb,
+# otherwise "the user can log in" would hide "can".
+SEPARATORS = {"ID": LOOSE_SEP, "SECRET": LOOSE_SEP, "BIRTHDATE": LOOSE_SEP, "USERNAME": VERB_SEP}
+
+FIELD_PATTERNS = []
+for _etype, _names in FIELD_NAMES.items():
+    _key = rf"(?<![\w-])(?i:{_names_regex(_names)}){FIELD_SUFFIX}"
+    _sep = SEPARATORS.get(_etype, EXPLICIT_SEP)
+    FIELD_PATTERNS.append((_etype, re.compile(rf"{_key}{_sep}(?P<value>{_VALUE[_etype]})", re.MULTILINE)))
+    _inner = r"[^\n]{1,100}?" if _etype == "SECRET" else r"[^<\n]{1,100}?"
+    FIELD_PATTERNS.append(
+        (_etype, re.compile(rf"<(?P<tag>(?i:{_names_regex(_names)}){FIELD_SUFFIX})(?:[ \t][^>]*)?>{SP}*(?P<value>{_inner}){SP}*</(?P=tag)>"))
+    )
+    # HTML table rows: <td>Passport</td> <td>X123</td>
+    FIELD_PATTERNS.append(
+        (
+            _etype,
+            re.compile(
+                rf"<t[dh][^>]*>\s*(?:<(?:b|strong)>)?\s*(?i:{_names_regex(_names)}){FIELD_SUFFIX}\s*:?\s*(?:</(?:b|strong)>)?\s*</t[dh]>"
+                rf"\s*<td[^>]*>{SP}*(?P<value>{_inner}){SP}*</td>"
+            ),
+        )
+    )
+
+
+def field_entities(text: str) -> list[Entity]:
+    entities = []
+    for etype, pattern in FIELD_PATTERNS:
+        for m in pattern.finditer(text):
+            start, end = m.span("value")
+            value = text[start:end]
+            # a quoted JSON value ends at its closing quote
+            opener = text[start - 1] if start else ""
+            if opener in "\"'" and opener in value:
+                end = start + value.index(opener)
+            while end > start:
+                if text[end - 2 : end] == "**":  # markdown bold closing the value
+                    end -= 2
+                elif text[end - 1] in " \t.,;:":
+                    end -= 1
+                else:
+                    break
+            value = text[start:end]
+            if _valid_field(etype, value):
+                entities.append(Entity(start, end, value, "ADDRESS" if etype == "BUILDING" else etype, "rule"))
+    return entities
+
+
 def rule_based_entities(text: str) -> list[Entity]:
     entities: list[Entity] = []
-    for etype, pattern, validator in RULE_PATTERNS:
+    for etype, pattern, validator in RULE_PATTERNS + INTERNATIONAL_PATTERNS:
         for m in pattern.finditer(text):
             group = "value" if "value" in pattern.groupindex else 0
             raw = m.group(group)
             if validator is not None and not validator(raw):
                 continue
             entities.append(Entity(m.start(group), m.end(group), raw, etype, "rule"))
+    entities += field_entities(text)
 
     # A POSTAL match inside an ADDRESS match (the ", 1000 Faketown" tail) is a
     # duplicate finding, not a separate one; drop it so counts stay honest.
@@ -202,6 +457,9 @@ def term_entities(text: str, terms: list[str]) -> list[Entity]:
 # Apertus-based entity & contextual-identifier recognizer
 # --------------------------------------------------------------------------
 
+# Two focused prompts, sent in parallel. One prompt asking for everything at once made
+# Apertus drop contextual descriptions in long letters (2/20 found vs 12/20 with this
+# split, on development data), so people-and-places and structured values are separate.
 APERTUS_SYSTEM_PROMPT = """You are a privacy analyst. Read the message below and list every \
 span of text that could identify a specific natural person, either directly or through \
 context. Include:
@@ -220,12 +478,24 @@ ONLY a JSON object of this exact shape, no markdown, no commentary:
 {"entities": [{"text": "<verbatim excerpt from the message>", "type": "PERSON|LOCATION|ORG|CONTEXTUAL"}]}
 If there is nothing to report, reply {"entities": []}."""
 
-APERTUS_TYPES = {"PERSON", "LOCATION", "ORG", "CONTEXTUAL"}
+APERTUS_STRUCTURED_PROMPT = """You are a privacy analyst. List every span of the message below that is one of:
+- ID: identification numbers of any kind (passport, ID card, driving licence, social \
+security or AHV, tax, customer or account numbers)
+- USERNAME: usernames, logins and handles
+- SECRET: passwords, PINs and access codes
+- BIRTHDATE: dates of birth
+Include values in running text and in lists, tables, forms, JSON or XML. Copy each span \
+exactly as it appears in the message. Reply with ONLY a JSON object of this exact shape, \
+no markdown, no commentary:
+{"entities": [{"text": "<verbatim excerpt from the message>", "type": "ID|USERNAME|SECRET|BIRTHDATE"}]}
+If there is nothing to report, reply {"entities": []}."""
+
+APERTUS_TYPES = {"PERSON", "LOCATION", "ORG", "ID", "USERNAME", "SECRET", "BIRTHDATE", "CONTEXTUAL"}
 MIN_APERTUS_SPAN = 3  # ignore 1-2 character "entities"; they would redact every occurrence
 
-# In-process cache of Apertus results, keyed by a hash of (model, text). Earlier turns
-# of a conversation are re-scanned on every request; this avoids paying for them again.
-# A cache miss (restart, other replica) just calls Apertus again.
+# In-process cache of Apertus results, keyed by a hash of (model, prompt, text). Earlier
+# turns of a conversation are re-scanned on every request; this avoids paying for them
+# again. A cache miss (restart, other replica) just calls Apertus again.
 _APERTUS_CACHE: "OrderedDict[str, list[tuple[str, str]]]" = OrderedDict()
 _APERTUS_CACHE_SIZE = 512
 
@@ -263,6 +533,37 @@ def _parse_apertus_json(content: str) -> list[tuple[str, str]]:
     return found
 
 
+async def _ask_apertus(client, api_base, api_key, model, prompt, text, timeout, max_retries) -> list[tuple[str, str]]:
+    cache_key = hashlib.sha256(f"{model}\x00{prompt}\x00{text}".encode()).hexdigest()
+    found = _APERTUS_CACHE.get(cache_key)
+    if found is not None:
+        _APERTUS_CACHE.move_to_end(cache_key)
+        return found
+    payload = {
+        "model": model,
+        "temperature": 0,
+        "max_tokens": 1024,
+        "messages": [{"role": "system", "content": prompt}, {"role": "user", "content": text}],
+    }
+    resp = None
+    for attempt in range(max_retries + 1):
+        resp = await client.post(
+            f"{api_base.rstrip('/')}/chat/completions",
+            headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},
+            json=payload,
+            timeout=timeout,
+        )
+        if resp.status_code not in (429, 500, 502, 503, 504) or attempt == max_retries:
+            break
+        await asyncio.sleep(_retry_delay_seconds(resp, attempt))
+    resp.raise_for_status()
+    found = _parse_apertus_json(resp.json()["choices"][0]["message"]["content"])
+    _APERTUS_CACHE[cache_key] = found
+    while len(_APERTUS_CACHE) > _APERTUS_CACHE_SIZE:
+        _APERTUS_CACHE.popitem(last=False)
+    return found
+
+
 async def apertus_entities(
     client: httpx.AsyncClient,
     api_base: str,
@@ -271,45 +572,24 @@ async def apertus_entities(
     text: str,
     timeout: float,
     max_retries: int = 3,
+    structured: bool = True,
 ) -> list[Entity]:
     """Ask Apertus which spans identify a person, then map the strings it returns back
     onto the original text. Anything not found verbatim in the text is discarded, so a
     hallucinated or injected answer can't add text; it can only fail to find things
-    (which the rules layer and the user review partly cover)."""
-    cache_key = hashlib.sha256(f"{model}\x00{text}".encode()).hexdigest()
-    found = _APERTUS_CACHE.get(cache_key)
-    if found is not None:
-        _APERTUS_CACHE.move_to_end(cache_key)
-    else:
-        payload = {
-            "model": model,
-            "temperature": 0,
-            "max_tokens": 1024,
-            "messages": [
-                {"role": "system", "content": APERTUS_SYSTEM_PROMPT},
-                {"role": "user", "content": text},
-            ],
-        }
-        resp = None
-        for attempt in range(max_retries + 1):
-            resp = await client.post(
-                f"{api_base.rstrip('/')}/chat/completions",
-                headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},
-                json=payload,
-                timeout=timeout,
-            )
-            if resp.status_code not in (429, 500, 502, 503, 504) or attempt == max_retries:
-                break
-            await asyncio.sleep(_retry_delay_seconds(resp, attempt))
-        resp.raise_for_status()
-        found = _parse_apertus_json(resp.json()["choices"][0]["message"]["content"])
-        _APERTUS_CACHE[cache_key] = found
-        while len(_APERTUS_CACHE) > _APERTUS_CACHE_SIZE:
-            _APERTUS_CACHE.popitem(last=False)
+    (which the rules layer and the user review partly cover). With structured=True a
+    second, parallel call looks for ID numbers, usernames, passwords and birth dates."""
+    prompts = [APERTUS_SYSTEM_PROMPT] + ([APERTUS_STRUCTURED_PROMPT] if structured else [])
+    answers = await asyncio.gather(
+        *(_ask_apertus(client, api_base, api_key, model, p, text, timeout, max_retries) for p in prompts)
+    )
 
     entities: list[Entity] = []
-    for span_text, etype in found:
+    for span_text, etype in (item for answer in answers for item in answer):
         if len(span_text.strip()) < MIN_APERTUS_SPAN or span_text not in text:
+            continue
+        # Apertus answers get the same sanity checks as the rules ("Mot de passe" is not a password)
+        if etype in ("ID", "USERNAME", "SECRET", "BIRTHDATE") and not _valid_field(etype, span_text):
             continue
         # Keep "Frau"/"M."/"Mr." outside the placeholder, as the rules do.
         prefix = HONORIFIC_PREFIX.match(span_text) if etype == "PERSON" else None
@@ -327,6 +607,7 @@ async def detect_entities(
     apertus_key: str,
     apertus_model: str,
     apertus_timeout: float,
+    apertus_structured: bool = True,
 ) -> tuple[list[Entity], Optional[str]]:
     """Returns (entities, apertus_error). apertus_error is None on success, or a short
     description so the caller can decide whether to block or fall back."""
@@ -335,7 +616,8 @@ async def detect_entities(
         return entities, None
     try:
         found = await apertus_entities(
-            apertus_client, apertus_base, apertus_key, apertus_model, text, apertus_timeout
+            apertus_client, apertus_base, apertus_key, apertus_model, text, apertus_timeout,
+            structured=apertus_structured,
         )
         return entities + found, None
     except Exception as e:  # noqa: BLE001 - any provider failure must be handled by policy
@@ -601,6 +883,12 @@ TYPE_COLORS = {
     "POSTAL": "#10b981",
     "ORG": "#3b82f6",
     "CUSTOM": "#ef4444",
+    "ID": "#0ea5e9",
+    "AHV": "#0ea5e9",
+    "USERNAME": "#6366f1",
+    "SECRET": "#dc2626",
+    "BIRTHDATE": "#d946ef",
+    "GEO": "#10b981",
 }
 DEFAULT_TYPE_COLOR = "#64748b"
 
@@ -1038,6 +1326,11 @@ class Pipe:
         )
         apertus_timeout_seconds: float = Field(default=20.0)
         enable_apertus: bool = Field(default=True, description="Off = rules and checksums only.")
+        apertus_structured_call: bool = Field(
+            default=True,
+            description="Second, parallel Apertus call for ID numbers, usernames, passwords and birth dates. "
+            "Off = one call: half the Apertus usage, fewer of those found.",
+        )
         block_on_apertus_failure: bool = Field(
             default=True,
             description="If Apertus fails: block the request (True) or send with rules-only redaction and a warning.",
@@ -1148,6 +1441,7 @@ class Pipe:
                     self.valves.apertus_api_key,
                     self.valves.apertus_model,
                     self.valves.apertus_timeout_seconds,
+                    self.valves.apertus_structured_call,
                 )
                 apertus_error = apertus_error or error
                 part.entities = merge_entities(found + term_entities(part.text, decisions["added"]), part.text)

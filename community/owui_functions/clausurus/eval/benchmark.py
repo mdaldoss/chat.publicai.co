@@ -45,12 +45,21 @@ clausurus = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(clausurus)
 
 AI4P_FILES = {
-    "en": "1english_openpii_8k.jsonl",
-    "de": "german_openpii_8k.jsonl",
-    "fr": "french_openpii_8k.jsonl",
-    "it": "italian_openpiii_8k.jsonl",
+    "validation": {
+        "en": "1english_openpii_8k.jsonl",
+        "de": "german_openpii_8k.jsonl",
+        "fr": "french_openpii_8k.jsonl",
+        "it": "italian_openpiii_8k.jsonl",
+    },
+    # the training split is only used as development data when improving the rules
+    "train": {
+        "en": "1english_openpii_30k.jsonl",
+        "de": "german_openpii_30k.jsonl",
+        "fr": "french_openpii_31k.jsonl",
+        "it": "italian_openpii_29k.jsonl",
+    },
 }
-AI4P_URL = "https://huggingface.co/datasets/ai4privacy/pii-masking-300k/resolve/main/data/validation/"
+AI4P_URL = "https://huggingface.co/datasets/ai4privacy/pii-masking-300k/resolve/main/data/"
 
 AI4P_GROUPS = {
     "Names": ["GIVENNAME1", "GIVENNAME2", "LASTNAME1", "LASTNAME2", "LASTNAME3"],
@@ -94,15 +103,21 @@ def load_swiss() -> list[dict]:
     return docs
 
 
-def load_ai4privacy(cache: Path, per_language: int, seed: int) -> list[dict]:
+def load_benign() -> list[dict]:
+    texts = json.loads((HERE / "benign.json").read_text(encoding="utf-8"))["texts"]
+    return [{"id": f"benign-{i}", "lang": t["lang"], "text": t["text"], "gold": []} for i, t in enumerate(texts)]
+
+
+def load_ai4privacy(cache: Path, per_language: int, seed: int, split: str = "validation") -> list[dict]:
+    cache = cache / split
     cache.mkdir(parents=True, exist_ok=True)
     rng = random.Random(seed)
     docs = []
-    for lang, name in AI4P_FILES.items():
+    for lang, name in AI4P_FILES[split].items():
         path = cache / name
         if not path.exists():
-            print(f"Downloading {name} to {cache} ...", file=sys.stderr)
-            with httpx.stream("GET", AI4P_URL + name, follow_redirects=True, timeout=300) as r:
+            print(f"Downloading {split}/{name} to {cache} ...", file=sys.stderr)
+            with httpx.stream("GET", f"{AI4P_URL}{split}/{name}", follow_redirects=True, timeout=300) as r:
                 r.raise_for_status()
                 with open(path, "wb") as f:
                     for chunk in r.iter_bytes():
@@ -302,12 +317,38 @@ def report_dataset(title, docs, results, group_order, direct_groups) -> list[str
     return lines
 
 
+def report_benign(docs, results, spans_by_system) -> list[str]:
+    lines = [
+        "## False alarms: ordinary requests with no personal data",
+        "",
+        f"{len(docs)} short chatbot requests (`eval/benign.json`). Anything hidden here is over-redaction.",
+        "",
+        "| System | Hidden regions | Requests with anything hidden | What was hidden |",
+        "|---|---|---|---|",
+    ]
+    for name, (scores, _) in results.items():
+        hidden = [
+            d["text"][s:e] for d, spans in zip(docs, spans_by_system[name]) for s, e in merge(spans)
+        ]
+        affected = sum(1 for spans in spans_by_system[name] if spans)
+        shown = ", ".join(f"`{h.strip()[:30]}`" for h in hidden[:12]) + (" …" if len(hidden) > 12 else "")
+        lines.append(f"| {name} | {len(hidden)} | {affected} / {len(docs)} | {shown or '(none)'} |")
+    lines.append("")
+    return lines
+
+
 async def main_async(args):
     datasets = {}
     if "swiss" in args.datasets:
         datasets["swiss"] = load_swiss()
     if "ai4privacy" in args.datasets:
         datasets["ai4privacy"] = load_ai4privacy(Path(args.cache).expanduser(), args.per_language, args.seed)
+    if "ai4privacy-dev" in args.datasets:
+        datasets["ai4privacy-dev"] = load_ai4privacy(
+            Path(args.cache).expanduser(), args.per_language, args.seed + 1000, split="train"
+        )
+    if "benign" in args.datasets:
+        datasets["benign"] = load_benign()
 
     presidio = Presidio() if "presidio" in args.systems else None
     apertus_key = os.environ.get("APERTUS_API_KEY", "")
@@ -327,17 +368,22 @@ async def main_async(args):
         for ds_name, docs in datasets.items():
             print(f"{ds_name}: {len(docs)} docs", file=sys.stderr)
             results = {}
+            spans_by_system = {}
             for system in args.systems:
                 if system == "clausurus-rules":
                     preds, t = await run_system(system, docs, clausurus_rules)
                     results[system] = ([score_doc(d["text"], d["gold"], p) for d, p in zip(docs, preds)], t)
+                    spans_by_system[system] = preds
                 elif system == "clausurus-apertus":
                     apertus.errors = 0
                     preds, t = await run_system(system, docs, apertus, is_async=True, client=client)
                     results[system] = ([score_doc(d["text"], d["gold"], p) for d, p in zip(docs, preds)], t)
+                    spans_by_system[system] = preds
                     if apertus.errors:
                         print(f"  Apertus failed on {apertus.errors} docs (rules only there)", file=sys.stderr)
-                        results[system + f" ({apertus.errors} Apertus errors)"] = results.pop(system)
+                        label = system + f" ({apertus.errors} Apertus errors)"
+                        results[label] = results.pop(system)
+                        spans_by_system[label] = spans_by_system.pop(system)
                 elif system == "presidio":
                     preds, t = await run_system(system, docs, presidio)
                     for threshold in (0.0, 0.5):
@@ -346,9 +392,18 @@ async def main_async(args):
                             [score_doc(d["text"], d["gold"], p) for d, p in zip(docs, kept)],
                             t,
                         )
+                        spans_by_system[f"presidio (score ≥ {threshold})"] = kept
             if ds_name == "swiss":
                 order = sorted({g for d in docs for _, _, g in d["gold"]})
                 out += report_dataset("Swiss synthetic set (this repo)", docs, results, order, None)
+            elif ds_name == "benign":
+                out += report_benign(docs, results, spans_by_system)
+            elif ds_name == "ai4privacy-dev":
+                out += report_dataset(
+                    f"DEVELOPMENT sample: ai4privacy training split, {args.per_language} per language "
+                    f"(seed {args.seed + 1000})",
+                    docs, results, list(AI4P_GROUPS), DIRECT_GROUPS,
+                )
             else:
                 out += report_dataset(
                     f"ai4privacy/pii-masking-300k, validation split, {args.per_language} random documents "
@@ -393,7 +448,7 @@ async def main_async(args):
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--datasets", nargs="+", default=["swiss", "ai4privacy"], choices=["swiss", "ai4privacy"])
+    parser.add_argument("--datasets", nargs="+", default=["swiss", "ai4privacy", "benign"], choices=["swiss", "ai4privacy", "ai4privacy-dev", "benign"])
     parser.add_argument(
         "--systems",
         nargs="+",

@@ -1,0 +1,25 @@
+{
+  "_about": "Development set for contextual identifiers (descriptions that single out a person without naming them). Used to tune the Apertus prompt; none of these phrases appear in the Swiss eval set or in the prompt examples. Fictional.",
+  "texts": [
+    {"lang": "de", "text": "Seit Monaten lärmt der Sohn des Dorfbäckers jede Nacht mit seinem Motorrad.", "gold": "der Sohn des Dorfbäckers"},
+    {"lang": "de", "text": "Die Lehrerin meiner Tochter in der 3. Klasse hat den Vorfall nicht gemeldet.", "gold": "Die Lehrerin meiner Tochter in der 3. Klasse"},
+    {"lang": "de", "text": "Mein Chef, der einzige Zahnarzt in Oberwil, hat mir fristlos gekündigt.", "gold": "der einzige Zahnarzt in Oberwil"},
+    {"lang": "de", "text": "Der Präsident des örtlichen Schützenvereins hat meinen Gartenzaun beschädigt.", "gold": "Der Präsident des örtlichen Schützenvereins"},
+    {"lang": "de", "text": "Die Witwe vom alten Förster wohnt jetzt allein im Haus am Waldrand.", "gold": "Die Witwe vom alten Förster"},
+    {"lang": "fr", "text": "Le fils du boulanger du quartier a rayé ma voiture hier soir.", "gold": "Le fils du boulanger du quartier"},
+    {"lang": "fr", "text": "La seule sage-femme de la vallée refuse de me rappeler depuis mars.", "gold": "La seule sage-femme de la vallée"},
+    {"lang": "fr", "text": "Mon ancien collègue, le chef de la police municipale, m'a menacé devant témoins.", "gold": "le chef de la police municipale"},
+    {"lang": "fr", "text": "La trésorière du club de football local a disparu avec la caisse.", "gold": "La trésorière du club de football local"},
+    {"lang": "fr", "text": "Le frère jumeau de mon propriétaire vit au rez-de-chaussée et entre chez moi.", "gold": "Le frère jumeau de mon propriétaire"},
+    {"lang": "it", "text": "Il figlio del macellaio del paese ha rotto la mia finestra con un pallone.", "gold": "Il figlio del macellaio del paese"},
+    {"lang": "it", "text": "L'unica dentista di Bosco Gurin non risponde alle mie email da settimane.", "gold": "L'unica dentista di Bosco Gurin"},
+    {"lang": "it", "text": "La presidente del coro parrocchiale ha diffuso voci false su di me.", "gold": "La presidente del coro parrocchiale"},
+    {"lang": "it", "text": "Il marito della mia datrice di lavoro mi ha offeso durante la cena aziendale.", "gold": "Il marito della mia datrice di lavoro"},
+    {"lang": "it", "text": "Il custode della scuola elementare ha visto tutto quello che è successo.", "gold": "Il custode della scuola elementare"},
+    {"lang": "en", "text": "The head nurse of the night shift at our clinic ignored my complaint twice.", "gold": "The head nurse of the night shift at our clinic"},
+    {"lang": "en", "text": "My ex-husband's new partner, the town's only notary, refused to sign the papers.", "gold": "the town's only notary"},
+    {"lang": "en", "text": "The coach of my son's under-12 football team shouted at the kids again.", "gold": "The coach of my son's under-12 football team"},
+    {"lang": "en", "text": "The youngest daughter of our building's owner keeps parking in my spot.", "gold": "The youngest daughter of our building's owner"},
+    {"lang": "en", "text": "The priest who runs the soup kitchen on Fridays told everyone my story.", "gold": "The priest who runs the soup kitchen on Fridays"}
+  ]
+}

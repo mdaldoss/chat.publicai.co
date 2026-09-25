@@ -6,13 +6,14 @@ Dataset: 40 synthetic texts (DE/FR/IT/EN), 172 gold entity spans.
 
 | Type | TP | FP | FN | Precision | Recall |
 |---|---|---|---|---|---|
-| ADDRESS | 32 | 0 | 0 | 1.00 | 1.00 |
+| ADDRESS | 32 | 2 | 0 | 0.94 | 1.00 |
 | AHV | 20 | 0 | 0 | 1.00 | 1.00 |
 | CONTEXTUAL | 0 | 0 | 24 | nan | 0.00 |
 | EMAIL | 20 | 0 | 0 | 1.00 | 1.00 |
 | IBAN | 8 | 0 | 0 | 1.00 | 1.00 |
+| ID | 0 | 17 | 0 | 0.00 | nan |
 | PERSON | 9 | 0 | 39 | 1.00 | 0.19 |
-| PHONE | 20 | 0 | 0 | 1.00 | 1.00 |
+| PHONE | 20 | 20 | 0 | 0.50 | 1.00 |
 
 **Leaked identifiers (no overlapping redaction of any type): 63 / 172**
 
@@ -22,24 +23,26 @@ Avg. detection latency: 0 ms/doc
 
 | Type | TP | FP | FN | Precision | Recall |
 |---|---|---|---|---|---|
-| ADDRESS | 32 | 0 | 0 | 1.00 | 1.00 |
+| ADDRESS | 32 | 2 | 0 | 0.94 | 1.00 |
 | AHV | 20 | 0 | 0 | 1.00 | 1.00 |
-| CONTEXTUAL | 18 | 13 | 6 | 0.58 | 0.75 |
+| CONTEXTUAL | 18 | 12 | 6 | 0.60 | 0.75 |
 | EMAIL | 20 | 0 | 0 | 1.00 | 1.00 |
 | IBAN | 8 | 0 | 0 | 1.00 | 1.00 |
+| ID | 0 | 39 | 0 | 0.00 | nan |
 | LOCATION | 0 | 33 | 0 | 0.00 | nan |
 | PERSON | 48 | 15 | 0 | 0.76 | 1.00 |
-| PHONE | 20 | 0 | 0 | 1.00 | 1.00 |
+| PHONE | 20 | 20 | 0 | 0.50 | 1.00 |
+| USERNAME | 0 | 3 | 0 | 0.00 | nan |
 
 **Leaked identifiers (no overlapping redaction of any type): 4 / 172**
 
-Avg. detection latency: 3912 ms/doc
+Avg. detection latency: 9389 ms/doc
 
 ## Per-document leaks, rules + Apertus
 
 - **03_de_citizen_complaint**: `mein Nachbar im dritten Stock` (CONTEXTUAL)
 - **11_fr_citizen_complaint**: `le nouveau concierge de l'immeuble 4` (CONTEXTUAL)
-- **13_fr_citizen_complaint**: `mon voisin du troisième étage` (CONTEXTUAL)
+- **21_it_citizen_complaint**: `il mio vicino al terzo piano` (CONTEXTUAL)
 - **32_en_citizen_complaint**: `my neighbour on the third floor` (CONTEXTUAL)
 
 ---

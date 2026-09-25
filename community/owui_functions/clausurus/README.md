@@ -15,13 +15,24 @@ Built for the Swiss {ai} Weeks "Public AI" challenge.
 1. **Finds personal data** in every message of the conversation (the whole history
    is sent to the provider on each turn, so it is all redacted each time), in two
    layers:
-   - **Rules**: AHV/AVS numbers, IBANs, Swiss UID/CHE numbers and payment cards
-     (all checksum-validated), emails, Swiss phone numbers, IP addresses, vehicle
-     plates, DE/FR/IT/EN street addresses and postcodes, and names after a title
-     ("Frau", "M.", "Sig.ra", "Mr").
-   - **Apertus**: finds names, organisations, places and *contextual* identifiers
-     that rules can't, such as "the only pharmacist in the village" or "the mayor's
-     wife". Apertus is only asked *what to hide*; it never answers the question.
+   - **Rules**, in three groups:
+     - *Swiss formats*: AHV/AVS numbers, IBANs, UID/CHE numbers and payment cards
+       (all checksum-validated), Swiss phone numbers, vehicle plates, Swiss-style
+       street addresses and 4-digit postcodes, and names after a title ("Frau",
+       "M.", "Sig.ra", "Mr").
+     - *International formats*: emails, international and national phone numbers,
+       IPv4/IPv6, GPS coordinates, number-first addresses ("12 rue de la Paix",
+       "221 Baker Street"), 5-digit and UK postcodes, and identifier-looking tokens
+       (9+ digit numbers, `123-45-6789`, `XK4471920`).
+     - *Labelled fields*, for pasted forms, tables and exports: the value after a
+       label such as *Passport*, *Ausweis*, *codice fiscale*, *Username*,
+       *mot de passe*, *date of birth*, *Nachname* or *Adresse*, in plain text,
+       Markdown, JSON, XML or HTML tables, in EN/DE/FR/IT.
+   - **Apertus**: finds names, organisations, places, ID numbers, usernames,
+     passwords, birth dates, and *contextual* identifiers that rules can't, such
+     as "the only pharmacist in the village" or "the mayor's wife". Its answers get
+     the same sanity checks as the rules. Apertus is only asked *what to hide*; it
+     never answers the question.
 2. **Lets you review it** (on by default, per user). Before anything is sent, a
    dialog shows your message with every finding highlighted, what found it (rules,
    Apertus or you), and where the data goes. You can:
@@ -106,6 +117,7 @@ personal details it finds (or that you mark), and shows you exactly what those a
 | `apertus_location` | `🇨🇭 Zürich, Switzerland · Swisscom` | Shown in the data-flow view |
 | `server_location` | *(generic label)* | Where this Open WebUI runs, shown in the data-flow view |
 | `enable_apertus` | `true` | Off = rules and checksums only |
+| `apertus_structured_call` | `true` | Second, parallel Apertus call for ID numbers, usernames, passwords and birth dates; off halves Apertus usage |
 | `block_on_apertus_failure` | `true` | Block the request if Apertus fails, instead of rules-only with a warning |
 | `allow_images` | `false` | Send image/file parts unredacted |
 | `review_timeout_seconds` | `300` | Close the review dialog (and cancel) after this |
@@ -122,11 +134,20 @@ personal details it finds (or that you mark), and shows you exactly what those a
 
 ## Limits
 
-- **Detection misses contextual phrases.** In the eval, all remaining leaks are
-  descriptions like "my neighbour on the third floor". In live testing, "Die Frau
-  des Gemeindepräsidenten" in the demo letter was flagged only partly
-  ("Gemeindepräsidenten") or not at all, depending on the run. Keep the review
-  step on when it matters.
+- **Detection misses contextual phrases.** About 1 in 8 in the Swiss eval, and 8
+  of 20 in a separate development set of letters. In live testing, "Die Frau des
+  Gemeindepräsidenten" in the demo letter was flagged only partly or not at all,
+  depending on the run. Keep the review step on when it matters.
+- **Some harmless values get hidden.** Numbers of 9+ digits (a ticket number),
+  upper-case codes with 3+ digits, anything after a field label like `Name:` or
+  `ID:`, "1000 Personen" (read as postcode + town), and occasionally an amount
+  flagged by Apertus ("CHF 1'250.50", 3 of 24 test requests). The review dialog
+  lets you send these as written.
+- **Two Apertus calls per message** (one for people, places and descriptions, one
+  for ID numbers, usernames, passwords and birth dates) run in parallel, so latency
+  barely changes, but usage doubles. On the shared hackathon endpoint this hit the
+  rate limit in the benchmark (14 of 200 documents fell back to rules only). Turn
+  off `apertus_structured_call` to halve usage.
 - **Review decisions live in server memory**, per user and chat. After a restart,
   a function update, or on another replica, they are forgotten: things you chose to
   send as written get hidden again (safe), but **phrases you added are no longer
@@ -138,71 +159,81 @@ personal details it finds (or that you mark), and shows you exactly what those a
   dialog inserts all message text as plain text, never as HTML.
 - **Title, tag and follow-up generation** go through Clausurus too when it is the
   selected model. They are redacted the same way, silently (no dialog or report).
-- **Formats**: the rules are tuned for Swiss and DE/FR/IT/EN formats; other
-  countries' ID and phone formats mostly rely on Apertus.
+- **Formats**: rules cover Swiss formats and common international and labelled
+  formats in EN/DE/FR/IT; unlabelled values in other countries' formats rely on
+  Apertus.
 - **Restoring** is plain text replacement. If the model rephrases a placeholder
   (`[Person 1]`), that value stays a placeholder in the reply.
 
-## Eval results
+## Evaluation
 
-40 synthetic Swiss texts (DE/FR/IT/EN; complaint letters, commune correspondence,
-HR emails, bank-style letters) with 172 annotated identifiers, generated by
-`eval/gen_dataset.py` (seeded, reproducible). Full table: [`eval/results.md`](eval/results.md).
+`eval/benchmark.py` scores what each system hides, regardless of the label it uses:
+an identifier counts as caught if any hidden span overlaps it. It compares Clausurus
+with Microsoft [Presidio](https://github.com/microsoft/presidio) (spaCy large models
+for EN/DE/FR/IT, its predefined recognizers, no customisation) on three sets. Full
+tables: [`eval/benchmark_results.md`](eval/benchmark_results.md).
 
-| | Rules only | Rules + Apertus |
-|---|---|---|
-| **Identifiers leaked** (no redaction overlapping them) | **63 / 172 (37%)** | **4 / 172 (2.3%)** |
-| AHV, IBAN, email, phone, address recall | 1.00 | 1.00 |
-| Personal names recall | 0.19 | 1.00 (precision 0.76) |
-| Contextual identifiers recall | 0.00 | 0.75 (precision 0.58) |
+- **Swiss set**: 40 synthetic letters and emails (DE/FR/IT/EN) with 172 identifiers
+  (`eval/gen_dataset.py`), the use case Clausurus is built for, written by us.
+- **ai4privacy**: 200 random documents (50 per language, seed 13) from the
+  validation split of [ai4privacy/pii-masking-300k](https://huggingface.co/datasets/ai4privacy/pii-masking-300k),
+  876 direct identifiers. External, international, mostly forms and records.
+- **False alarms**: 24 ordinary chatbot requests with no personal data
+  (`eval/benign.json`).
 
-- Apertus is not fully deterministic: repeated runs leaked 3 or 4 of 172.
-- All 4 remaining leaks in the run above are contextual phrases ("mein Nachbar im dritten Stock",
-  "mon voisin du troisième étage", "le nouveau concierge de l'immeuble 4", "my
-  neighbour on the third floor").
-- Apertus also flags place names that aren't in the gold set (33 LOCATION spans):
-  over-redaction, not a leak, but it makes the text sent less readable.
-- An earlier version reported 1 / 172. That run was flawed: the Apertus prompt used
-  two example phrases that also appear in the eval set. The prompt examples now
-  share no phrase with the eval set, and 4 / 172 is the clean number.
-- This is Clausurus' own eval on its own templated synthetic data, written by the
-  same people as the detector. It is a development signal, not an independent
-  audit; expect more misses on real correspondence.
+| | Swiss set: caught | ai4privacy: caught (95% CI) | ai4privacy: precision | False alarms (of 24 requests) |
+|---|---|---|---|---|
+| Clausurus v0.2, rules only | 63% | 12% (9–15%) | 96% | not measured |
+| Clausurus v0.2, rules + Apertus | 98% | 60% (54–66%) | 90% | not measured |
+| **Clausurus v0.3, rules only** | 63% | **70% (65–75%)** | 95% | **0** |
+| **Clausurus v0.3, rules + Apertus** | **98%** (3 of 172 leaked) | **88.5% (85–91%)** | 90% | 3 requests (amounts) |
+| Presidio, all results | 70% | 48% (44–52%) | 69% | 14 requests (25 items) |
+| Presidio, score ≥ 0.5 | 61% | 39% (36–43%) | 66% | 14 requests (24 items) |
 
-## Compared with Microsoft Presidio
+Time per document in the benchmark: Presidio ~25 ms, Clausurus rules ~1 ms,
+Clausurus + Apertus 8–9 s. That last figure includes rate-limit waits on the shared
+endpoint while processing 3 documents at a time. A single message (the demo letter)
+took about 2 s with one or two Apertus calls, but 33 s once, right after the benchmark
+had used up the endpoint's rate limit: expect spikes on a shared endpoint.
 
-`eval/benchmark.py` runs Clausurus and [Presidio](https://github.com/microsoft/presidio)
-(spaCy large models for EN/DE/FR/IT, predefined recognizers, no customisation) on two
-datasets and scores what each one hides, regardless of labels. Full tables:
-[`eval/benchmark_results.md`](eval/benchmark_results.md).
+### How v0.3 was developed
 
-| Direct identifiers caught (95% CI) | Swiss set (40 docs, 172 spans) | ai4privacy sample (200 docs, 876 spans) |
-|---|---|---|
-| Clausurus, rules only | 63% (60–67%) | 12% (9–15%) |
-| Clausurus, rules + Apertus | **98% (96–100%)** | **60% (54–66%)** |
-| Presidio, all results | 70% (64–75%) | 48% (44–52%) |
-| Presidio, score ≥ 0.5 | 61% (54–67%) | 39% (36–43%) |
-| Precision: Clausurus + Apertus / Presidio (all) | 96% / 66% | 90% / 69% |
-| Time per document: Clausurus + Apertus / Presidio | 3.7 s / 23 ms | 4.9 s / 26 ms |
+v0.2 only knew Swiss formats, and its Apertus prompt only asked for names, places and
+contextual descriptions, so on ai4privacy 40% of direct identifiers leaked (mostly ID
+numbers, usernames, passwords, birth dates and addresses in forms). v0.3 adds
+international formats, labelled fields and a second Apertus call for those types.
 
-What this says, and what it doesn't:
+To keep the numbers honest:
 
-- **On the Swiss set Clausurus has home advantage**: the data was written alongside
-  the detector, and Presidio has no AHV recognizer (0%) and almost no notion of
-  contextual identifiers (4%). Read that column as "Clausurus does what it was built
-  for", not as a fair contest.
-- **ai4privacy is the fairer test** (external, not used for tuning). Clausurus with
-  Apertus catches more direct identifiers than Presidio (60% vs 48%; the intervals
-  don't overlap) with fewer false alarms. **But 40% still leak**: on form-like
-  records Clausurus misses most passwords (6%), many usernames, birth dates and ID
-  numbers in foreign formats. Presidio is better on IP/username, passwords, birth
-  dates and place names. The two are complementary.
-- **Presidio is ~150× faster and needs no external service.** Clausurus depends on
-  an LLM call per message (and its rate limits).
-- Presidio can be customised with recognizers for Swiss formats; this compares the
-  out-of-the-box setup.
+- Rules were developed on 400 documents from the ai4privacy **training** split. The
+  200 validation documents above were only scored once v0.3 was finished, the same
+  documents as for v0.2.
+- The Apertus prompt split was chosen on a separate development set
+  (`eval/contextual_dev.json`, 20 contextual phrases not used elsewhere). One
+  combined prompt caught 2/20 of them inside letters; two prompts caught 12/20.
+  The first v0.3 attempt with the combined prompt dropped the Swiss set's
+  contextual recall from 88% to 17%, which is how this was found.
+- The false-alarm set was written before the v0.3 rules. It was then used once to
+  add sanity checks to Apertus answers (a password can't contain spaces, every part
+  of an ID must contain a digit), so it is no longer fully independent.
+- An earlier v0.2 number (1/172 leaked on the Swiss set) was inflated: the prompt
+  then used two example phrases that also appear in the Swiss set.
+
+### What the numbers do and don't say
+
+- **On the Swiss set Clausurus has home advantage**: we wrote the data, and Presidio
+  has no AHV recognizer (0%) and hardly handles contextual descriptions (4%).
+- **ai4privacy is the fairer test.** It is still synthetic, LLM-generated and heavy
+  on form-like records; real letters and chats will look different.
+- **Presidio is ~150× faster and needs no external service.** It can also be given
+  custom recognizers; this compares the out-of-the-box setup.
+- Clausurus hides quasi-identifiers only partly (cities 45%, other dates 14%, sex and
+  title 48%), by design: hiding every date and place makes answers useless.
 - ai4privacy is used under its academic / non-commercial license: downloaded at run
   time, not stored here, aggregate numbers only.
+
+`eval/run_eval.py` keeps the older per-type report for the Swiss set
+([`eval/results.md`](eval/results.md)).
 
 ## Try it
 
@@ -251,9 +282,12 @@ python eval/gen_dataset.py                    # regenerate the dataset
 python eval/run_eval.py --rules-only          # no key needed
 APERTUS_API_KEY=... python eval/run_eval.py   # rules + Apertus (~4 min, rate-limited)
 
-# Clausurus vs. Presidio (needs presidio-analyzer and the four spaCy *_lg models;
-# downloads the ai4privacy validation split to ~/.cache, ~20 min with Apertus)
+# Clausurus vs. Presidio on the Swiss set, ai4privacy and the false-alarm set (needs
+# presidio-analyzer and the four spaCy *_lg models; downloads the ai4privacy validation
+# split to ~/.cache; ~30 min with Apertus because of rate limits)
 APERTUS_API_KEY=... python eval/benchmark.py --per-language 50
+# development data only (training split), for working on the rules
+python eval/benchmark.py --datasets ai4privacy-dev benign --systems clausurus-rules --per-language 100
 ```
 
 ## License

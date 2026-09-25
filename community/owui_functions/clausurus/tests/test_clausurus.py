@@ -169,6 +169,85 @@ class TestRuleRecognizers:
         assert all(e.type == "CUSTOM" and e.source == "user" for e in ents)
 
 
+def hidden(text):
+    return {(e.type, e.text) for e in clausurus.merge_entities(clausurus.rule_based_entities(text), text)}
+
+
+class TestInternationalFormats:
+    @pytest.mark.parametrize(
+        "text, expected",
+        [
+            ("Call +44 20 7946 0958 today", ("PHONE", "+44 20 7946 0958")),
+            ("Tel. 030 1234 5678 bitte", ("PHONE", "030 1234 5678")),
+            ("appelez le 01 23 45 67 89", ("PHONE", "01 23 45 67 89")),
+            ("host 2001:db8:85a3:0:0:8a2e:370:7334 is down", ("IP", "2001:db8:85a3:0:0:8a2e:370:7334")),
+            ("we met at [46.9481, 7.4474] yesterday", ("GEO", "[46.9481, 7.4474]")),
+            ("j'habite au 12 rue de la Paix depuis mai", ("ADDRESS", "12 rue de la Paix")),
+            ("she lives at 221 Baker Street now", ("ADDRESS", "221 Baker Street")),
+            ("75002 Paris, France", ("POSTAL", "75002 Paris")),
+            ("London SW1A 1AA", ("POSTAL", "SW1A 1AA")),
+            ("ticket 482915736 was closed", ("ID", "482915736")),
+            ("document XK4471920 attached", ("ID", "XK4471920")),
+        ],
+    )
+    def test_found(self, text, expected):
+        assert expected in hidden(text)
+
+
+class TestLabelledFields:
+    @pytest.mark.parametrize(
+        "text, expected",
+        [
+            ("Passport Number: C0X4471920\n", ("ID", "C0X4471920")),
+            ("- **ID Card:** 7730015529   - next", ("ID", "7730015529")),
+            ('{"social_security_number": "123-45-6789", "x": 1}', ("ID", "123-45-6789")),
+            ("<DriverLicense>ZH-99-001234</DriverLicense>", ("ID", "ZH-99-001234")),
+            ("<td>Passeport</td> <td>FR9920113</td>", ("ID", "FR9920113")),
+            ("mein Pass lautet X9981234", ("ID", "X9981234")),
+            ("Username: kaeser.m84\n", ("USERNAME", "kaeser.m84")),
+            ("Benutzername: fondue_fan", ("USERNAME", "fondue_fan")),
+            ("Password: Tr0ub4dor&3 next", ("SECRET", "Tr0ub4dor&3")),
+            ("my password is hunter2!", ("SECRET", "hunter2!")),
+            ("<Passwort>g}7Lq#2</Passwort>", ("SECRET", "g}7Lq#2")),
+            ("Date of Birth: March 3rd, 1971\n", ("BIRTHDATE", "March 3rd, 1971")),
+            ("geboren am 16. Mai 1991 in Bern", ("BIRTHDATE", "16. Mai 1991")),
+            ("Data di nascita: 16º agosto 1970", ("BIRTHDATE", "16º agosto 1970")),
+            ("Geburtsdatum: Januar/38", ("BIRTHDATE", "Januar/38")),
+            ("First name: Aurelia\n", ("PERSON", "Aurelia")),
+            ("<Nachname>Beispielmann</Nachname>", ("PERSON", "Beispielmann")),
+            ("Street: Fox Circle - City: Larkspur", ("ADDRESS", "Fox Circle")),
+            ("Apartment: 12B\n", ("ADDRESS", "12B")),
+        ],
+    )
+    def test_found(self, text, expected):
+        assert expected in hidden(text)
+
+
+class TestNoFalseAlarms:
+    @pytest.mark.parametrize(
+        "text",
+        [
+            "Password: at least 12 characters, one number, one symbol.",
+            "Username: must be unique. The user can log in with MFA.",
+            "Mot de passe : comment créer une phrase secrète solide ?",
+            "Released under the MIT license 2024.",
+            "x = [0.5, 1.25] * 3",
+            "Compare ISO 27001 with SOC 2; my GPU is an RTX 4090.",
+            "Error 0x80070005 on build 26100.2033, Python 3.12.",
+            "The meeting is on 01.12.2025 at 14:32 in room 204.",
+            "Unit: kg",
+            "Budget 2026: CHF 1'250.50, 8.1 % VAT.",
+        ],
+    )
+    def test_nothing_hidden(self, text):
+        assert hidden(text) == set()
+
+    def test_benign_set_has_no_findings(self):
+        benign = json.loads((CLAUSURUS_PATH.parent / "eval" / "benign.json").read_text(encoding="utf-8"))
+        for item in benign["texts"]:
+            assert hidden(item["text"]) == set(), item["text"]
+
+
 # --------------------------------------------------------------------------
 # Merging and placeholders
 # --------------------------------------------------------------------------
@@ -239,13 +318,22 @@ class TestStreamDeAnonymizer:
 # --------------------------------------------------------------------------
 
 
+STRUCTURED_TYPES = {"ID", "USERNAME", "SECRET", "BIRTHDATE"}
+
+
 def apertus_transport(entities, counter=None, status=200):
+    """Answers like Apertus would: the structured prompt only returns ID/USERNAME/SECRET/
+    BIRTHDATE items, the people-and-places prompt the rest."""
+
     def handler(request):
+        messages = json.loads(request.content)["messages"]
         if counter is not None:
-            counter.append(json.loads(request.content)["messages"][1]["content"])
+            counter.append(messages[1]["content"])
         if status != 200:
             return httpx.Response(status)
-        content = json.dumps({"entities": entities})
+        structured = messages[0]["content"] == clausurus.APERTUS_STRUCTURED_PROMPT
+        answer = [e for e in entities if (e["type"] in STRUCTURED_TYPES) == structured]
+        content = json.dumps({"entities": answer})
         return httpx.Response(200, json={"choices": [{"message": {"content": content}}]})
 
     return httpx.MockTransport(handler)
@@ -273,6 +361,21 @@ class TestApertus:
         assert [(e.text, e.type) for e in ents] == [("Die einzige Apothekerin im Dorf", "CONTEXTUAL")]
 
     @pytest.mark.asyncio
+    async def test_apertus_answers_get_the_same_sanity_checks(self):
+        text = "Mot de passe : utilisez 12 caractères. Budget CHF 1'250.50. Mon code est Zq8!rT2w."
+        client = httpx.AsyncClient(
+            transport=apertus_transport(
+                [
+                    {"text": "Mot de passe", "type": "SECRET"},
+                    {"text": "CHF 1'250.50", "type": "ID"},
+                    {"text": "Zq8!rT2w", "type": "SECRET"},
+                ]
+            )
+        )
+        ents = await clausurus.apertus_entities(client, "http://apertus", "k", "m", text, 5)
+        assert [(e.text, e.type) for e in ents] == [("Zq8!rT2w", "SECRET")]
+
+    @pytest.mark.asyncio
     async def test_honorific_is_kept_outside_person_spans(self):
         text = "Ich bin Frau Heidi Beispielmann."
         client = httpx.AsyncClient(transport=apertus_transport([{"text": "Frau Heidi Beispielmann", "type": "PERSON"}]))
@@ -281,12 +384,19 @@ class TestApertus:
         assert clausurus.Anonymizer().anonymize(text, ents) == "Ich bin Frau [PERSON_1]."
 
     @pytest.mark.asyncio
+    async def test_structured_call_can_be_turned_off(self):
+        calls = []
+        client = httpx.AsyncClient(transport=apertus_transport([{"text": "Heidi", "type": "PERSON"}], calls))
+        await clausurus.apertus_entities(client, "http://apertus", "k", "m", "Heidi here", 5, structured=False)
+        assert len(calls) == 1
+
+    @pytest.mark.asyncio
     async def test_results_are_cached_per_text(self):
         calls = []
         client = httpx.AsyncClient(transport=apertus_transport([{"text": "Heidi", "type": "PERSON"}], calls))
         for _ in range(3):
             await clausurus.apertus_entities(client, "http://apertus", "k", "m", "Heidi here", 5)
-        assert len(calls) == 1
+        assert len(calls) == 2  # one per prompt, then cached
 
     @pytest.mark.asyncio
     async def test_failure_is_reported_and_rules_still_apply(self, monkeypatch):
@@ -299,7 +409,7 @@ class TestApertus:
         ents, err = await clausurus.detect_entities("an der Seestrasse 63", True, client, "http://a", "k", "m", 5)
         assert err is not None
         assert any(e.type == "ADDRESS" for e in ents)
-        assert len(calls) == 4  # first try + 3 retries on 5xx
+        assert len(calls) == 8  # per prompt: first try + 3 retries on 5xx
 
 
 # --------------------------------------------------------------------------
