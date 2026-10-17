@@ -33,6 +33,7 @@ import importlib.util
 import json
 import os
 import random
+import re
 import sys
 import time
 from pathlib import Path
@@ -143,14 +144,18 @@ class ClausurusApertus:
         self.key, self.base, self.model = key, base, model
         self.sem = asyncio.Semaphore(concurrency)
         self.errors = 0
+        self.details = {}  # doc id -> {"entities", "error", "seconds"}, for --failures-dir
 
     async def __call__(self, client, doc) -> list[tuple]:
         async with self.sem:
+            t0 = time.perf_counter()
             ents, err = await clausurus.detect_entities(
                 doc["text"], True, client, self.base, self.key, self.model, 60
             )
+            seconds = time.perf_counter() - t0
         if err:
             self.errors += 1
+        self.details[doc["id"]] = {"entities": ents, "error": err, "seconds": seconds}
         return [(e.start, e.end) for e in ents]
 
 
@@ -211,6 +216,55 @@ def score_doc(text: str, gold: list[tuple], predicted: list[tuple]) -> dict:
         g[2] += full
     correct = sum(1 for rs, re in regions if any(rs < e and s < re for s, e, _ in gold))
     return {"groups": per_group, "regions": len(regions), "correct_regions": correct}
+
+
+# Datasets whose text may be copied into failure files. ai4privacy may not be
+# redistributed, so its records carry document ids, offsets and categories only.
+SHAREABLE_TEXT = {"swiss", "benign"}
+
+
+def failure_records(ds_name, docs, details, direct_groups) -> list[dict]:
+    """One record per document where Clausurus + Apertus missed something, hid something
+    in a request with no personal data, or where the Apertus call failed."""
+    records = []
+    with_text = ds_name in SHAREABLE_TEXT
+    for doc in docs:
+        info = details.get(doc["id"], {"entities": [], "error": None, "seconds": None})
+        regions = merge([(e.start, e.end) for e in info["entities"]])
+        missed = [
+            {"start": s, "end": e, "category": g, **({"text": doc["text"][s:e]} if with_text else {})}
+            for s, e, g in doc["gold"]
+            if (direct_groups is None or g in direct_groups) and not any(rs < e and s < re_ for rs, re_ in regions)
+        ]
+        hidden_without_gold = [] if doc["gold"] else [
+            {"start": e.start, "end": e.end, "type": e.type, "found_by": e.source, "text": e.text}
+            for e in clausurus.merge_entities(info["entities"], doc["text"])
+        ]
+        if not (missed or hidden_without_gold or info["error"]):
+            continue
+        error = None
+        if info["error"]:
+            status = re.search(r"\b([45]\d\d)\b", info["error"])
+            error = {"message": info["error"][:300], "http_status": int(status.group(1)) if status else None}
+        record = {
+            "dataset": ds_name,
+            "id": doc["id"],
+            "lang": doc["lang"],
+            "seconds": round(info["seconds"], 2) if info["seconds"] is not None else None,
+            "apertus_error": error,
+            "missed": missed,
+        }
+        if hidden_without_gold:
+            record["false_alarms"] = hidden_without_gold
+        if with_text:
+            record["text"] = doc["text"]
+            record["apertus_found"] = [
+                {"start": e.start, "end": e.end, "type": e.type, "text": e.text}
+                for e in info["entities"]
+                if e.source == "apertus"
+            ]
+        records.append(record)
+    return records
 
 
 def pool(scores: list[dict], groups=None) -> dict:
@@ -393,6 +447,17 @@ async def main_async(args):
                             t,
                         )
                         spans_by_system[f"presidio (score ≥ {threshold})"] = kept
+            if args.failures_dir and apertus is not None:
+                out_dir = Path(args.failures_dir)
+                out_dir.mkdir(parents=True, exist_ok=True)
+                records = failure_records(
+                    ds_name, docs, apertus.details, DIRECT_GROUPS if ds_name.startswith("ai4privacy") else None
+                )
+                with open(out_dir / f"{ds_name}_failures.jsonl", "w", encoding="utf-8") as f:
+                    for r in records:
+                        f.write(json.dumps(r, ensure_ascii=False) + "\n")
+                print(f"  {len(records)} failure records -> {out_dir / f'{ds_name}_failures.jsonl'}", file=sys.stderr)
+                apertus.details = {}
             if ds_name == "swiss":
                 order = sorted({g for d in docs for _, _, g in d["gold"]})
                 out += report_dataset("Swiss synthetic set (this repo)", docs, results, order, None)
@@ -464,6 +529,10 @@ def main():
     )
     parser.add_argument("--apertus-model", default="swiss-ai/Apertus-v1.5-70B")
     parser.add_argument("--output", default="benchmark_results.md")
+    parser.add_argument(
+        "--failures-dir",
+        help="write <dataset>_failures.jsonl files (misses, false alarms, Apertus errors) for clausurus-apertus",
+    )
     asyncio.run(main_async(parser.parse_args()))
 
 
