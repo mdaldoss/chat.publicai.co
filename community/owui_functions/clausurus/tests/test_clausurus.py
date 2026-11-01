@@ -685,3 +685,50 @@ class TestReport:
 
 if __name__ == "__main__":
     sys.exit(pytest.main([__file__, "-v"]))
+
+
+# --------------------------------------------------------------------------
+# Benchmark failure files (eval/benchmark.py --failures-dir)
+# --------------------------------------------------------------------------
+
+
+def load_benchmark():
+    import sys as _sys
+
+    argv, _sys.argv = _sys.argv, ["benchmark.py"]
+    try:
+        bspec = importlib.util.spec_from_file_location("benchmark", CLAUSURUS_PATH.parent / "eval" / "benchmark.py")
+        module = importlib.util.module_from_spec(bspec)
+        bspec.loader.exec_module(module)
+        return module
+    finally:
+        _sys.argv = argv
+
+
+class TestFailureRecords:
+    DOC_TEXT = "Contact Jane Example at +44 20 7946 0958."
+
+    def records(self, dataset):
+        b = load_benchmark()
+        docs = [
+            {"id": "a", "lang": "en", "text": self.DOC_TEXT, "gold": [(8, 20, "Names")]},
+            {"id": "b", "lang": "en", "text": self.DOC_TEXT, "gold": []},
+        ]
+        phone = clausurus.Entity(24, 40, "+44 20 7946 0958", "PHONE", "rule")
+        details = {
+            "a": {"entities": [phone], "error": "HTTPStatusError: Client error '429 ' for url 'x'", "seconds": 1.0},
+            "b": {"entities": [phone], "error": None, "seconds": 0.5},
+        }
+        return b.failure_records(dataset, docs, details, None)
+
+    def test_ai4privacy_records_never_contain_text(self):
+        records = self.records("ai4privacy")
+        assert "Jane" not in json.dumps(records) and "7946" not in json.dumps(records)
+        assert records[0]["missed"] == [{"start": 8, "end": 20, "category": "Names"}]
+        assert records[0]["apertus_error"]["http_status"] == 429
+        assert records[1]["false_alarms"][0] == {"start": 24, "end": 40, "type": "PHONE", "found_by": "rule"}
+
+    def test_own_datasets_include_text(self):
+        records = self.records("swiss")
+        assert records[0]["missed"][0]["text"] == "Jane Example"
+        assert records[1]["false_alarms"][0]["text"] == "+44 20 7946 0958"

@@ -237,7 +237,7 @@ def failure_records(ds_name, docs, details, direct_groups) -> list[dict]:
             if (direct_groups is None or g in direct_groups) and not any(rs < e and s < re_ for rs, re_ in regions)
         ]
         hidden_without_gold = [] if doc["gold"] else [
-            {"start": e.start, "end": e.end, "type": e.type, "found_by": e.source, "text": e.text}
+            {"start": e.start, "end": e.end, "type": e.type, "found_by": e.source, **({"text": e.text} if with_text else {})}
             for e in clausurus.merge_entities(info["entities"], doc["text"])
         ]
         if not (missed or hidden_without_gold or info["error"]):
